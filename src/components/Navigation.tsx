@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, X } from "lucide-react";
 
@@ -12,6 +13,7 @@ export function Navigation() {
   const isMobile = useIsMobile();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userType, setUserType] = useState<'user' | 'worker' | 'admin' | null>(null);
+  const [userId, setUserId] = useState<number>(0);
   
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -19,9 +21,12 @@ export function Navigation() {
   
   useEffect(() => {
     const storedUserType = localStorage.getItem('userType');
+    const storedUserId = localStorage.getItem(storedUserType === 'worker' ? 'workerId' : 'userId');
+    
     if (storedUserType === 'user' || storedUserType === 'worker' || storedUserType === 'admin') {
       setIsLoggedIn(true);
       setUserType(storedUserType as 'user' | 'worker' | 'admin');
+      if (storedUserId) setUserId(parseInt(storedUserId));
     } else {
       setIsLoggedIn(false);
       setUserType(null);
@@ -48,7 +53,12 @@ export function Navigation() {
               <Link to="/contact" className="text-foreground/70 hover:text-foreground transition">Contact</Link>
               
               {isLoggedIn ? (
-                <ProfileAvatar userType={userType} />
+                <div className="flex items-center gap-2">
+                  {(userType === 'user' || userType === 'worker') && (
+                    <NotificationBell userType={userType} userId={userId} />
+                  )}
+                  <ProfileAvatar userType={userType} />
+                </div>
               ) : (
                 <Link to="/auth">
                   <Button>Get Started</Button>
@@ -66,8 +76,11 @@ export function Navigation() {
               <Link to="/contact" onClick={toggleMenu} className="text-foreground/70 hover:text-foreground transition py-2">Contact</Link>
               
               {isLoggedIn ? (
-                <div className="py-2">
+                <div className="py-2 flex items-center justify-between">
                   <ProfileAvatar userType={userType} />
+                  {(userType === 'user' || userType === 'worker') && (
+                    <NotificationBell userType={userType} userId={userId} />
+                  )}
                 </div>
               ) : (
                 <Link to="/auth" onClick={toggleMenu}>

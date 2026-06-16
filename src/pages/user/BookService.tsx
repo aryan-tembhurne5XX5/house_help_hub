@@ -132,11 +132,11 @@ export default function BookService() {
     
     try {
       console.log(`Finding available workers for service ${selectedService} on ${bookingDetails.date} at ${bookingDetails.time}`);
-      const response = await getAvailableWorkers(
-        selectedService,
-        bookingDetails.date,
-        bookingDetails.time
-      );
+      const response = await getAvailableWorkers({
+        serviceId: selectedService,
+        date: bookingDetails.date,
+        time: bookingDetails.time
+      });
       
       const workers = response.data as Worker[];
       console.log("Available workers found:", workers);

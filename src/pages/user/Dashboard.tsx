@@ -1,15 +1,17 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "react-router-dom";
-import { getUserBookings } from "@/utils/api";
+import { Link, useNavigate } from "react-router-dom";
+import { getUserBookings, cancelBooking } from "@/utils/api";
+import { ReviewDialog } from "@/components/ReviewDialog";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar, Clock, User } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 interface Booking {
   booking_id: number;
@@ -23,17 +25,43 @@ interface Booking {
 }
 
 export default function UserDashboard() {
-  // Mock user ID (in a real app, this would come from auth)
-  const userId = 1;
+  const navigate = useNavigate();
+  const [isProcessing, setIsProcessing] = useState<number | null>(null);
+
+  // Get user ID from localStorage
+  const userId = parseInt(localStorage.getItem('userId') || '0');
+  
+  // Redirect if not logged in as user
+  useEffect(() => {
+    if (!userId || localStorage.getItem('userType') !== 'user') {
+      toast.error("Please login as a user first");
+      navigate("/auth");
+    }
+  }, [userId, navigate]);
   
   // Fetch user's bookings
-  const { data: bookings, isLoading } = useQuery({
+  const { data: bookings, isLoading, refetch } = useQuery({
     queryKey: ['userBookings', userId],
     queryFn: async () => {
       const response = await getUserBookings(userId);
       return response.data as Booking[];
-    }
+    },
+    enabled: !!userId,
   });
+
+  const handleCancel = async (bookingId: number) => {
+    setIsProcessing(bookingId);
+    try {
+      await cancelBooking(bookingId);
+      toast.success("Booking cancelled successfully");
+      refetch();
+    } catch (error: any) {
+      console.error("Error cancelling booking:", error);
+      toast.error(error?.response?.data?.message || "Failed to cancel booking. Note: You cannot cancel within 12 hours of the scheduled time.");
+    } finally {
+      setIsProcessing(null);
+    }
+  };
 
   const upcomingBookings = bookings?.filter(
     booking => booking.status === "confirmed" || booking.status === "pending"
@@ -180,7 +208,14 @@ export default function UserDashboard() {
                             <Button variant="secondary" size="sm">
                               Reschedule
                             </Button>
-                            <Button variant="outline" size="sm" className="text-destructive">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-destructive"
+                              onClick={() => handleCancel(booking.booking_id)}
+                              disabled={isProcessing === booking.booking_id}
+                            >
+                              {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                               Cancel
                             </Button>
                           </div>
@@ -196,7 +231,14 @@ export default function UserDashboard() {
                             <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
-                          <Button variant="outline" size="sm" className="text-destructive">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-destructive"
+                            onClick={() => handleCancel(booking.booking_id)}
+                            disabled={isProcessing === booking.booking_id}
+                          >
+                            {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                             Cancel Request
                           </Button>
                         </div>
@@ -266,9 +308,16 @@ export default function UserDashboard() {
                             <Button variant="outline" size="sm">
                               Book Again
                             </Button>
-                            <Button variant="secondary" size="sm">
-                              Leave Review
-                            </Button>
+                            <ReviewDialog 
+                              bookingId={booking.booking_id}
+                              workerName={booking.worker_name}
+                              serviceName={booking.service_name}
+                              onSuccess={() => refetch()}
+                            >
+                              <Button variant="secondary" size="sm">
+                                Leave Review
+                              </Button>
+                            </ReviewDialog>
                           </div>
                         </div>
                       ) : (

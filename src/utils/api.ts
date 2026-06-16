@@ -10,197 +10,68 @@ const api = axios.create({
   },
 });
 
-// Add request/response interceptors for better error handling
+// Request interceptor to add token
 api.interceptors.request.use(
   (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
-  (error) => {
-    console.error('API Request Error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-api.interceptors.response.use(
-  (response) => {
-    console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
-    return response;
-  },
-  (error) => {
-    const errorMessage = error.response?.data?.message || error.message;
-    console.error('API Response Error:', errorMessage, error.response?.data);
-    console.error('Failed request details:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      data: error.config?.data,
-    });
-    return Promise.reject(error);
-  }
-);
+// Auth Services
+export const registerUser = (userData: any) => api.post('/users/register', userData);
+export const loginUser = (credentials: any) => api.post('/users/login', credentials);
+export const registerWorker = (workerData: any) => api.post('/workers/register', workerData);
+export const loginWorker = (credentials: any) => api.post('/workers/login', credentials);
+export const loginAdmin = (credentials: any) => api.post('/admins/login', credentials);
 
-// User Authentication API
-export const registerUser = (userData: { name: string; email: string; password: string; phone?: string; }) => {
-  console.log('Registering user:', userData);
-  return api.post('/users/register', userData)
-    .catch(error => {
-      console.error('Failed to register user:', error);
-      throw error;
-    });
-};
-
-export const registerWorker = (workerData: { name: string; email: string; password: string; phone: string; }) => {
-  console.log('Registering worker:', workerData);
-  return api.post('/workers/register', workerData)
-    .catch(error => {
-      console.error('Failed to register worker:', error);
-      throw error;
-    });
-};
-
-export const loginUser = (credentials: { email: string; password: string; }) => {
-  console.log('User login attempt:', credentials.email);
-  return api.post('/users/login', credentials)
-    .catch(error => {
-      console.error('Failed to login user:', error);
-      throw error;
-    });
-};
-
-export const loginWorker = (credentials: { email: string; password: string; }) => {
-  console.log('Worker login attempt:', credentials.email);
-  return api.post('/workers/login', credentials)
-    .catch(error => {
-      console.error('Failed to login worker:', error);
-      throw error;
-    });
-};
-
-export const loginAdmin = (credentials: { email: string; password: string; }) => {
-  console.log('Admin login attempt:', credentials.email);
-  return api.post('/admins/login', credentials)
-    .catch(error => {
-      console.error('Failed to login admin:', error);
-      throw error;
-    });
-};
-
-// User Profile API
-export const getUserProfile = (userId: number) => {
-  return api.get(`/users/${userId}/profile`);
-};
-
-export const updateUserProfile = (userId: number, profileData: any) => {
-  return api.put(`/users/${userId}/profile`, profileData);
-};
-
-// Worker Profile API
-export const getWorkerProfile = (workerId: number) => {
-  return api.get(`/workers/${workerId}/profile`);
-};
-
-export const updateWorkerProfile = (workerId: number, profileData: any) => {
-  return api.put(`/workers/${workerId}/profile`, profileData);
-};
-
-// Services API
-export const getServices = () => {
-  console.log('Fetching services from:', `${API_URL}/services`);
-  return api.get('/services')
-    .catch(error => {
-      console.error('Failed to fetch services:', error);
-      throw error;
-    });
-};
-
-// Workers API
-export const getAvailableWorkers = (serviceId: number, date: string, time: string) => {
-  console.log(`Finding available workers for: serviceId=${serviceId}, date=${date}, time=${time}`);
-  return api.get(`/workers/available?serviceId=${serviceId}&date=${date}&time=${time}`)
-    .catch(error => {
-      console.error('Failed to find available workers:', error);
-      throw error;
-    });
-};
-
-export const registerWorkerServices = (workerId: number, services: any[]) => {
-  console.log('Registering worker services:', workerId, services);
-  // Convert to an object for better logging
-  const selectedServices = services.filter(service => service.selected);
-  console.log('Selected services count:', selectedServices.length);
-  selectedServices.forEach(service => {
-    console.log(`Service ${service.id}: ${service.name} at rate ₹${service.rate}`);
-  });
-  
-  return api.post(`/workers/${workerId}/services`, { services })
-    .catch(error => {
-      console.error('Failed to register worker services:', error);
-      throw error;
-    });
-};
-
-export const updateWorkerAvailability = (workerId: number, availability: any) => {
-  console.log('Updating worker availability:', workerId);
-  // Log availability details for debugging
-  Object.entries(availability).forEach(([day, slots]: [string, any]) => {
-    const availableSlots = Object.entries(slots)
-      .filter(([, isAvailable]) => isAvailable)
-      .map(([slot]) => slot);
-    
-    if (availableSlots.length > 0) {
-      console.log(`${day}: available at ${availableSlots.join(', ')}`);
-    }
-  });
-  
-  return api.post(`/workers/${workerId}/availability`, { availability })
-    .catch(error => {
-      console.error('Failed to update worker availability:', error);
-      throw error;
-    });
-};
-
-// Bookings API
-export const createBooking = (bookingData: any) => {
-  console.log('Creating booking:', bookingData);
-  return api.post('/bookings', bookingData)
-    .catch(error => {
-      console.error('Failed to create booking:', error);
-      throw error;
-    });
-};
-
+// User Services
+export const getUserProfile = (userId: number) => api.get(`/users/${userId}/profile`);
+export const updateUserProfile = (userId: number, data: any) => api.put(`/users/${userId}/profile`, data);
 export const getUserBookings = (userId: number) => api.get(`/users/${userId}/bookings`);
+export const changeUserPassword = (userId: number, data: any) => api.put(`/users/${userId}/password`, data);
+
+// Worker Services
+export const getWorkerProfile = (workerId: number) => api.get(`/workers/${workerId}/profile`);
+export const updateWorkerProfile = (workerId: number, data: any) => api.put(`/workers/${workerId}/profile`, data);
+export const changeWorkerPassword = (workerId: number, data: any) => api.put(`/workers/${workerId}/password`, data);
+export const registerWorkerServices = (workerId: number, services: any) => api.post(`/workers/${workerId}/services`, { services });
+export const updateWorkerAvailability = (workerId: number, availability: any) => api.post(`/workers/${workerId}/availability`, { availability });
 export const getWorkerRequests = (workerId: number) => api.get(`/workers/${workerId}/requests`);
 
-export const acceptBooking = (bookingId: number, workerId: number) => {
-  console.log(`Worker ${workerId} accepting booking ${bookingId}`);
-  return api.put(`/bookings/${bookingId}/accept`, { workerId });
-};
+// Booking Services
+export const createBooking = (bookingData: any) => api.post('/bookings', bookingData);
+export const acceptBooking = (bookingId: number) => api.put(`/bookings/${bookingId}/accept`);
+export const rejectBooking = (bookingId: number) => api.put(`/bookings/${bookingId}/reject`);
+export const cancelBooking = (bookingId: number) => api.put(`/bookings/${bookingId}/cancel`);
+export const completeBooking = (bookingId: number) => api.put(`/bookings/${bookingId}/complete`);
+export const getBookingDetails = (bookingId: number) => api.get(`/bookings/${bookingId}`);
 
-export const rejectBooking = (bookingId: number) => {
-  console.log(`Rejecting booking ${bookingId}`);
-  return api.put(`/bookings/${bookingId}/reject`);
-};
+// Review Services
+export const createReview = (reviewData: any) => api.post('/reviews', reviewData);
 
-export const getBookingDetails = (bookingId: number) => {
-  return api.get(`/bookings/${bookingId}`);
-};
+// Notification Services
+export const getUserNotifications = (userId: number) => api.get(`/users/${userId}/notifications`);
+export const getWorkerNotifications = (workerId: number) => api.get(`/workers/${workerId}/notifications`);
+export const markNotificationRead = (notificationId: number) => api.put(`/notifications/${notificationId}/read`);
+export const markAllUserNotificationsRead = (userId: number) => api.put(`/users/${userId}/notifications/read-all`);
+export const markAllWorkerNotificationsRead = (workerId: number) => api.put(`/workers/${workerId}/notifications/read-all`);
 
-// Admin API
-export const getAdminDashboardData = () => {
-  return api.get('/admin/dashboard');
-};
+// Search Services
+export const getServices = () => api.get('/services');
+export const getAvailableWorkers = (params: { serviceId: number, date: string, time: string }) => 
+  api.get('/workers/available', { params });
 
-export const getAllUsers = () => {
-  return api.get('/admin/users');
-};
-
-export const getAllWorkers = () => {
-  return api.get('/admin/workers');
-};
-
-export const getAllBookings = () => {
-  return api.get('/admin/bookings');
-};
+// Admin Services
+export const getAdminDashboardData = () => api.get('/dashboard/stats');
+export const getAllUsers = () => api.get('/users');
+export const getAllWorkers = () => api.get('/workers');
+export const getAllBookings = () => api.get('/bookings');
+export const deleteUser = (userId: number) => api.delete(`/users/${userId}`);
+export const deleteWorker = (workerId: number) => api.delete(`/workers/${workerId}`);
 
 export default api;

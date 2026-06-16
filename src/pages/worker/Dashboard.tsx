@@ -14,8 +14,9 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getWorkerRequests, acceptBooking, rejectBooking } from "@/utils/api";
+import { getWorkerRequests, acceptBooking, rejectBooking, completeBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { Loader2, Check, X, Calendar, Clock, User } from "lucide-react";
 
@@ -34,8 +35,18 @@ interface ServiceRequest {
 }
 
 export default function WorkerDashboard() {
-  // Mock worker ID (in a real app, this would come from auth)
-  const workerId = 1;
+  const navigate = useNavigate();
+  
+  // Get worker ID from localStorage
+  const workerId = parseInt(localStorage.getItem('workerId') || '0');
+  
+  // Redirect if not logged in as worker
+  useEffect(() => {
+    if (!workerId || localStorage.getItem('userType') !== 'worker') {
+      toast.error("Please login as a worker first");
+      navigate("/auth");
+    }
+  }, [workerId, navigate]);
   
   const [processingBookingId, setProcessingBookingId] = useState<number | null>(null);
   
@@ -45,7 +56,8 @@ export default function WorkerDashboard() {
     queryFn: async () => {
       const response = await getWorkerRequests(workerId);
       return response.data as ServiceRequest[];
-    }
+    },
+    enabled: !!workerId,
   });
   
   const activeRequests = requests?.filter(r => r.status === "pending" || r.status === "confirmed") || [];
@@ -76,6 +88,21 @@ export default function WorkerDashboard() {
     } catch (error) {
       console.error("Error rejecting booking:", error);
       toast.error("Failed to reject the request. Please try again.");
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleComplete = async (requestId: number) => {
+    setProcessingBookingId(requestId);
+    
+    try {
+      await completeBooking(requestId);
+      toast.success("Job marked as completed successfully!");
+      refetch();
+    } catch (error) {
+      console.error("Error completing booking:", error);
+      toast.error("Failed to complete the job. Please try again.");
     } finally {
       setProcessingBookingId(null);
     }
@@ -256,11 +283,22 @@ export default function WorkerDashboard() {
                                   </Button>
                                 </div>
                               )}
-                              {request.status !== "pending" && (
-                                <Button size="sm" variant="outline">
-                                  View Details
-                                </Button>
-                              )}
+                                {request.status === "confirmed" && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="default"
+                                    onClick={() => handleComplete(request.booking_id)}
+                                    disabled={processingBookingId === request.booking_id}
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                  >
+                                    {processingBookingId === request.booking_id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    ) : (
+                                      <Check className="h-4 w-4 mr-1" />
+                                    )}
+                                    Complete Job
+                                  </Button>
+                                )}
                             </TableCell>
                           </TableRow>
                         ))}
