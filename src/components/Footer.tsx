@@ -1,5 +1,5 @@
-
 import { Logo } from "./Logo";
+import { Link } from "react-router-dom";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -18,30 +18,30 @@ export function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4">Services</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-gray-600 hover:text-primary">Cleaning</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Cooking</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Laundry</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Medical Assistance</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Pest Control</a></li>
+              <li><Link to="/user/book" className="text-gray-600 hover:text-primary">Cleaning</Link></li>
+              <li><Link to="/user/book" className="text-gray-600 hover:text-primary">Cooking</Link></li>
+              <li><Link to="/user/book" className="text-gray-600 hover:text-primary">Laundry</Link></li>
+              <li><Link to="/user/book" className="text-gray-600 hover:text-primary">Medical Assistance</Link></li>
+              <li><Link to="/user/book" className="text-gray-600 hover:text-primary">Pest Control</Link></li>
             </ul>
           </div>
           
           <div>
             <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-2">
-              <li><a href="/about" className="text-gray-600 hover:text-primary">About Us</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">How it Works</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Careers</a></li>
-              <li><a href="/contact" className="text-gray-600 hover:text-primary">Contact Us</a></li>
+              <li><Link to="/about" className="text-gray-600 hover:text-primary">About Us</Link></li>
+              <li><Link to="/how-it-works" className="text-gray-600 hover:text-primary">How it Works</Link></li>
+              <li><Link to="/contact" className="text-gray-600 hover:text-primary">Careers</Link></li>
+              <li><Link to="/contact" className="text-gray-600 hover:text-primary">Contact Us</Link></li>
             </ul>
           </div>
           
           <div>
             <h3 className="text-lg font-semibold mb-4">Legal</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-gray-600 hover:text-primary">Privacy Policy</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Terms of Service</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-primary">Cookie Policy</a></li>
+              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-primary">Privacy Policy</Link></li>
+              <li><Link to="/terms-and-conditions" className="text-gray-600 hover:text-primary">Terms of Service</Link></li>
+              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-primary">Cookie Policy</Link></li>
             </ul>
           </div>
         </div>

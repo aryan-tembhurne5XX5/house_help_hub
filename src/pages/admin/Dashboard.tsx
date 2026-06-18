@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { getAdminDashboardData, getAllUsers, getAllWorkers, getAllBookings } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -86,14 +87,7 @@ export default function AdminDashboard() {
     enabled: tab === 'bookings' && !!adminId,
   });
   
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
+
   
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {

@@ -7,6 +7,7 @@ import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, X } from "lucide-react";
+import { isAuthenticated, getCurrentRole, getCurrentUserId, getDashboardPath } from "@/utils/auth";
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,13 +21,10 @@ export function Navigation() {
   };
 
   useEffect(() => {
-    const storedUserType = localStorage.getItem('userType');
-    const storedUserId = localStorage.getItem(storedUserType === 'worker' ? 'workerId' : 'userId');
-
-    if (storedUserType === 'user' || storedUserType === 'worker' || storedUserType === 'admin') {
+    if (isAuthenticated()) {
       setIsLoggedIn(true);
-      setUserType(storedUserType as 'user' | 'worker' | 'admin');
-      if (storedUserId) setUserId(parseInt(storedUserId));
+      setUserType(getCurrentRole());
+      setUserId(getCurrentUserId());
     } else {
       setIsLoggedIn(false);
       setUserType(null);
@@ -51,6 +49,9 @@ export function Navigation() {
               <Link to="/" className="text-foreground/70 hover:text-foreground transition">Home</Link>
               <Link to="/about" className="text-foreground/70 hover:text-foreground transition">About</Link>
               <Link to="/contact" className="text-foreground/70 hover:text-foreground transition">Contact</Link>
+              {isLoggedIn && (
+                <Link to={getDashboardPath()} className="text-foreground/70 hover:text-foreground transition">Dashboard</Link>
+              )}
 
               {isLoggedIn ? (
                 <div className="flex items-center gap-2">
@@ -74,6 +75,9 @@ export function Navigation() {
               <Link to="/" onClick={toggleMenu} className="text-foreground/70 hover:text-foreground transition py-2">Home</Link>
               <Link to="/about" onClick={toggleMenu} className="text-foreground/70 hover:text-foreground transition py-2">About</Link>
               <Link to="/contact" onClick={toggleMenu} className="text-foreground/70 hover:text-foreground transition py-2">Contact</Link>
+              {isLoggedIn && (
+                <Link to={getDashboardPath()} onClick={toggleMenu} className="text-foreground/70 hover:text-foreground transition py-2">Dashboard</Link>
+              )}
 
               {isLoggedIn ? (
                 <div className="py-2 flex items-center justify-between">

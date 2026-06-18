@@ -16,9 +16,9 @@ import {
 import { toast } from "sonner";
 import { getWorkerRequests, acceptBooking, rejectBooking, completeBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { format, parseISO } from "date-fns";
-import { Loader2, Check, X, Calendar, Clock, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, Check, X, Calendar, Clock, User, Eye } from "lucide-react";
+import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
 
 interface ServiceRequest {
   booking_id: number;
@@ -58,16 +58,17 @@ export default function WorkerDashboard() {
       return response.data as ServiceRequest[];
     },
     enabled: !!workerId,
+    refetchOnWindowFocus: true,
   });
   
-  const activeRequests = requests?.filter(r => r.status === "pending" || r.status === "confirmed") || [];
-  const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected") || [];
+  const activeRequests = requests?.filter(r => r.status === "pending" || r.status === "confirmed" || r.status === "accepted") || [];
+  const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected" || r.status === "cancelled") || [];
   
   const handleAccept = async (requestId: number) => {
     setProcessingBookingId(requestId);
     
     try {
-      await acceptBooking(requestId, workerId);
+      await acceptBooking(requestId);
       toast.success("Service request accepted!");
       refetch();
     } catch (error) {
@@ -108,26 +109,6 @@ export default function WorkerDashboard() {
     }
   };
   
-  const formatDateTime = (dateStr: string, timeStr: string) => {
-    try {
-      // Format date: 2023-04-22 -> April 22, 2023
-      const date = format(parseISO(dateStr), "MMMM d, yyyy");
-      
-      // Format time: 14:00:00 -> 2:00 PM
-      const timeParts = timeStr.split(':');
-      const hours = parseInt(timeParts[0], 10);
-      const minutes = parseInt(timeParts[1], 10);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const formattedHours = hours % 12 || 12;
-      const formattedMinutes = minutes.toString().padStart(2, '0');
-      const time = `${formattedHours}:${formattedMinutes} ${ampm}`;
-      
-      return `${date}, ${time}`;
-    } catch (error) {
-      return `${dateStr}, ${timeStr}`;
-    }
-  };
-  
   const getTotalEarnings = () => {
     return requests
       ?.filter(r => r.status === "completed")
@@ -143,13 +124,17 @@ export default function WorkerDashboard() {
             <p className="text-gray-500 mt-1">Manage your service requests and schedule</p>
           </div>
           
-          <div className="mt-4 sm:mt-0">
-            <Button variant="outline" className="mr-2">
-              My Profile
-            </Button>
-            <Button>
-              Update Availability
-            </Button>
+          <div className="mt-4 sm:mt-0 flex gap-2">
+            <Link to="/worker/profile">
+              <Button variant="outline">
+                My Profile
+              </Button>
+            </Link>
+            <Link to="/worker/setup-services">
+              <Button>
+                Update Availability
+              </Button>
+            </Link>
           </div>
         </div>
         
@@ -233,7 +218,7 @@ export default function WorkerDashboard() {
                             <TableCell>
                               <div className="flex items-center">
                                 <Calendar className="h-4 w-4 mr-2" />
-                                {formatDateTime(request.booking_date, request.booking_time)}
+                                {formatBookingDateTime(request.booking_date, request.booking_time)}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -243,17 +228,15 @@ export default function WorkerDashboard() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={
-                                request.status === "confirmed" ? "secondary" : 
-                                request.status === "rejected" ? "destructive" : "outline"
-                              }>
-                                {request.status}
+                              <Badge className={getStatusColor(request.status)}>
+                                {getStatusLabel(request.status)}
                               </Badge>
                             </TableCell>
                             <TableCell>${parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
                             <TableCell>
+                              <div className="flex flex-wrap gap-2">
                               {request.status === "pending" && (
-                                <div className="flex space-x-2">
+                                <>
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -281,7 +264,7 @@ export default function WorkerDashboard() {
                                     )}
                                     Decline
                                   </Button>
-                                </div>
+                                </>
                               )}
                                 {request.status === "confirmed" && (
                                   <Button 
@@ -299,6 +282,12 @@ export default function WorkerDashboard() {
                                     Complete Job
                                   </Button>
                                 )}
+                                <Link to={`/worker/booking/${request.booking_id}`}>
+                                  <Button size="sm" variant="outline">
+                                    <Eye className="h-4 w-4 mr-1" /> Details
+                                  </Button>
+                                </Link>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -352,22 +341,21 @@ export default function WorkerDashboard() {
                             <TableCell>
                               <div className="flex items-center">
                                 <Calendar className="h-4 w-4 mr-2" />
-                                {formatDateTime(request.booking_date, request.booking_time)}
+                                {formatBookingDateTime(request.booking_date, request.booking_time)}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={
-                                request.status === "completed" ? "secondary" : 
-                                request.status === "rejected" ? "destructive" : "outline"
-                              }>
-                                {request.status}
+                              <Badge className={getStatusColor(request.status)}>
+                                {getStatusLabel(request.status)}
                               </Badge>
                             </TableCell>
                             <TableCell>${parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
                             <TableCell>
-                              <Button size="sm" variant="outline">
-                                View Details
-                              </Button>
+                              <Link to={`/worker/booking/${request.booking_id}`}>
+                                <Button size="sm" variant="outline">
+                                  <Eye className="h-4 w-4 mr-1" /> View Details
+                                </Button>
+                              </Link>
                             </TableCell>
                           </TableRow>
                         ))}

@@ -18,7 +18,7 @@ import {
   markAllUserNotificationsRead,
   markAllWorkerNotificationsRead
 } from "@/utils/api";
-import { formatDistanceToNow, parseISO } from "date-fns";
+import { formatRelativeTime } from "@/utils/dateUtils";
 
 interface Notification {
   notification_id: number;
@@ -82,14 +82,6 @@ export function NotificationBell({ userType, userId }: { userType: 'user' | 'wor
     }
   };
 
-  const formatTime = (dateString: string) => {
-    try {
-      return formatDistanceToNow(parseISO(dateString), { addSuffix: true });
-    } catch (error) {
-      return "recently";
-    }
-  };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -139,12 +131,22 @@ export function NotificationBell({ userType, userId }: { userType: 'user' | 'wor
                   {notification.message}
                 </p>
                 <span className="text-[10px] text-gray-400 mt-1 block w-full text-right">
-                  {formatTime(notification.created_at)}
+                  {formatRelativeTime(notification.created_at)}
                 </span>
               </DropdownMenuItem>
             ))
           )}
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <div className="p-2">
+          <Button 
+            variant="ghost" 
+            className="w-full text-sm justify-center" 
+            onClick={() => window.location.href = '/user/notifications'}
+          >
+            View all notifications
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

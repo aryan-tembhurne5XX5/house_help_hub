@@ -15,6 +15,7 @@ const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 const HelpSupport = lazy(() => import('./pages/HelpSupport'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsConditions = lazy(() => import('./pages/TermsConditions'))
+const HowItWorks = lazy(() => import('./pages/HowItWorks'))
 
 // User routes
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'))
@@ -64,6 +65,7 @@ function App() {
             <Route path="/help-support" element={<HelpSupport />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-and-conditions" element={<TermsConditions />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
             
             {/* User routes */}
             <Route path="/user/dashboard" element={<UserDashboard />} />

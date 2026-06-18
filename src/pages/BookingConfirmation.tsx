@@ -11,10 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getBookingDetails } from "@/utils/api";
+import { getBookingDetails, cancelBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { formatBookingDateTime } from "@/utils/dateUtils";
+import { toast } from "sonner";
 
 export default function BookingConfirmation() {
   const navigate = useNavigate();
@@ -48,13 +49,22 @@ export default function BookingConfirmation() {
     enabled: !!bookingId,
   });
   
-  // Format date and time for display
-  const formatDateTime = (date: string, time: string) => {
+  const [isCancelling, setIsCancelling] = useState(false);
+  
+  const handleCancel = async () => {
+    if (!bookingId) return;
+    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    
+    setIsCancelling(true);
     try {
-      const dateObj = new Date(`${date}T${time}`);
-      return format(dateObj, "MMMM d, yyyy 'at' h:mm a");
-    } catch (error) {
-      return `${date} at ${time}`;
+      await cancelBooking(bookingId);
+      toast.success("Booking cancelled successfully");
+      navigate("/user/dashboard");
+    } catch (error: any) {
+      console.error("Error cancelling booking:", error);
+      toast.error(error?.response?.data?.message || "Failed to cancel booking.");
+    } finally {
+      setIsCancelling(false);
     }
   };
   
@@ -147,7 +157,7 @@ export default function BookingConfirmation() {
                       <div>
                         <p className="text-sm text-gray-500">Date & Time</p>
                         <p>{booking?.booking_date && booking?.booking_time ? 
-                          formatDateTime(booking.booking_date, booking.booking_time) : 
+                          formatBookingDateTime(booking.booking_date, booking.booking_time) : 
                           "Not specified"}
                         </p>
                       </div>
@@ -245,7 +255,13 @@ export default function BookingConfirmation() {
             </CardContent>
             
             <CardFooter className="flex flex-col sm:flex-row gap-4">
-              <Button className="w-full sm:w-auto flex-1" variant="outline">
+              <Button 
+                className="w-full sm:w-auto flex-1" 
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isCancelling}
+              >
+                {isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Cancel Booking
               </Button>
               <Link to="/user/book" className="w-full sm:w-auto flex-1">

@@ -21,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loginUser, loginWorker, loginAdmin, registerUser, registerWorker } from "@/utils/api";
 import { Loader2 } from "lucide-react";
+import { isAuthenticated, getDashboardPath } from "@/utils/auth";
+import { useEffect } from "react";
 
 // Define schemas for form validation
 const loginSchema = z.object({
@@ -51,6 +53,13 @@ export default function Auth() {
   const [tab, setTab] = useState("login");
   const [userType, setUserType] = useState<"user" | "worker" | "admin">("user");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate(getDashboardPath());
+    }
+  }, [navigate]);
 
   // Login form
   const loginForm = useForm<LoginFormData>({
@@ -275,13 +284,12 @@ export default function Auth() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Password</Label>
-                        <Button
-                          variant="link"
-                          className="px-0 font-normal h-auto text-xs"
-                          type="button"
+                        <Link
+                          to="/auth/forgot-password"
+                          className="text-xs text-primary hover:underline"
                         >
                           Forgot password?
-                        </Button>
+                        </Link>
                       </div>
                       <Input
                         id="password"

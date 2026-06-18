@@ -9,9 +9,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { getUserBookings, cancelBooking } from "@/utils/api";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar, Clock, User } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { Loader2, Calendar, Clock, User, Phone, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
 
 interface Booking {
   booking_id: number;
@@ -22,6 +22,10 @@ interface Booking {
   worker_phone: string | null;
   status: string;
   total_price: number;
+  ticket_number?: string;
+  duration_hours?: number;
+  address?: string;
+  notes?: string;
 }
 
 export default function UserDashboard() {
@@ -47,6 +51,7 @@ export default function UserDashboard() {
       return response.data as Booking[];
     },
     enabled: !!userId,
+    refetchOnWindowFocus: true,
   });
 
   const handleCancel = async (bookingId: number) => {
@@ -64,32 +69,12 @@ export default function UserDashboard() {
   };
 
   const upcomingBookings = bookings?.filter(
-    booking => booking.status === "confirmed" || booking.status === "pending"
+    booking => booking.status === "confirmed" || booking.status === "pending" || booking.status === "accepted"
   ) || [];
   
   const pastBookings = bookings?.filter(
-    booking => booking.status === "completed" || booking.status === "rejected"
+    booking => booking.status === "completed" || booking.status === "rejected" || booking.status === "cancelled"
   ) || [];
-  
-  const formatDateTime = (dateStr: string, timeStr: string) => {
-    try {
-      // Format date: 2023-04-22 -> April 22, 2023
-      const date = format(parseISO(dateStr), "MMMM d, yyyy");
-      
-      // Format time: 14:00:00 -> 2:00 PM
-      const timeParts = timeStr.split(':');
-      const hours = parseInt(timeParts[0], 10);
-      const minutes = parseInt(timeParts[1], 10);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const formattedHours = hours % 12 || 12;
-      const formattedMinutes = minutes.toString().padStart(2, '0');
-      const time = `${formattedHours}:${formattedMinutes} ${ampm}`;
-      
-      return `${date}, ${time}`;
-    } catch (error) {
-      return `${dateStr}, ${timeStr}`;
-    }
-  };
   
   return (
     <Layout>
@@ -174,14 +159,17 @@ export default function UserDashboard() {
                           <CardDescription>
                             <div className="flex items-center mt-1">
                               <Calendar className="h-4 w-4 mr-1" />
-                              {formatDateTime(booking.booking_date, booking.booking_time)}
+                              {formatBookingDateTime(booking.booking_date, booking.booking_time)}
                             </div>
+                            {booking.ticket_number && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Ticket: #{booking.ticket_number}
+                              </div>
+                            )}
                           </CardDescription>
                         </div>
-                        <Badge
-                          variant={booking.status === "confirmed" ? "secondary" : "outline"}
-                        >
-                          {booking.status}
+                        <Badge className={getStatusColor(booking.status)}>
+                          {getStatusLabel(booking.status)}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -201,13 +189,24 @@ export default function UserDashboard() {
                             <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              Contact Worker
-                            </Button>
-                            <Button variant="secondary" size="sm">
-                              Reschedule
-                            </Button>
+                          <div className="flex flex-wrap gap-2">
+                            {booking.worker_phone && (
+                              <a href={`tel:${booking.worker_phone}`}>
+                                <Button variant="outline" size="sm">
+                                  <Phone className="h-3 w-3 mr-1" /> Contact
+                                </Button>
+                              </a>
+                            )}
+                            <Link to="/user/book">
+                              <Button variant="secondary" size="sm">
+                                Reschedule
+                              </Button>
+                            </Link>
+                            <Link to={`/user/booking/${booking.booking_id}`}>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-3 w-3 mr-1" /> Details
+                              </Button>
+                            </Link>
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -277,14 +276,12 @@ export default function UserDashboard() {
                           <CardDescription>
                             <div className="flex items-center mt-1">
                               <Calendar className="h-4 w-4 mr-1" />
-                              {formatDateTime(booking.booking_date, booking.booking_time)}
+                              {formatBookingDateTime(booking.booking_date, booking.booking_time)}
                             </div>
                           </CardDescription>
                         </div>
-                        <Badge
-                          variant={booking.status === "completed" ? "secondary" : "destructive"}
-                        >
-                          {booking.status}
+                        <Badge className={getStatusColor(booking.status)}>
+                          {getStatusLabel(booking.status)}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -304,10 +301,17 @@ export default function UserDashboard() {
                             <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              Book Again
-                            </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Link to="/user/book">
+                              <Button variant="outline" size="sm">
+                                Book Again
+                              </Button>
+                            </Link>
+                            <Link to={`/user/booking/${booking.booking_id}`}>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-3 w-3 mr-1" /> Details
+                              </Button>
+                            </Link>
                             <ReviewDialog 
                               bookingId={booking.booking_id}
                               workerName={booking.worker_name}
@@ -327,9 +331,18 @@ export default function UserDashboard() {
                             You can try booking with a different time or service.
                           </p>
                           
-                          <Button variant="outline" size="sm">
-                            Book Again
-                          </Button>
+                          <div className="flex gap-2">
+                            <Link to="/user/book">
+                              <Button variant="outline" size="sm">
+                                Book Again
+                              </Button>
+                            </Link>
+                            <Link to={`/user/booking/${booking.booking_id}`}>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-3 w-3 mr-1" /> Details
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                       )}
                     </CardContent>

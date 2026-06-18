@@ -1,8 +1,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { getSmartAuthPath } from "@/utils/auth";
 
 export function Hero() {
+  const targetPath = getSmartAuthPath();
+
   return (
     <div className="hero-pattern py-16 md:py-24">
       <div className="container mx-auto px-4">
@@ -14,7 +17,7 @@ export function Hero() {
             Connect with verified household workers including maids, cooks, laundry services, 
             medical assistance, pest control, and more.
           </p>
-          <Link to="/auth">
+          <Link to={targetPath}>
             <Button size="lg" className="text-lg px-8 py-6">
               Get Started
               <svg

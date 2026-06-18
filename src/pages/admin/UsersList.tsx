@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getAllUsers, deleteUser, blockUser } from "@/utils/api";
 import { Loader2, Trash2, Ban, UserCheck } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/dateUtils";
 
 export default function UsersList() {
   const navigate = useNavigate();
@@ -108,7 +108,7 @@ export default function UsersList() {
                         <TableCell>{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.phone || 'N/A'}</TableCell>
-                        <TableCell>{format(new Date(user.created_at), 'MMM d, yyyy')}</TableCell>
+                        <TableCell>{formatDate(user.created_at)}</TableCell>
                         <TableCell>
                           {user.is_blocked ? (
                             <Badge variant="destructive">Blocked</Badge>
