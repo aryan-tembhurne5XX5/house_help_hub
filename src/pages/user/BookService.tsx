@@ -206,7 +206,8 @@ export default function BookService() {
       });
     } catch (error) {
       console.error("Error creating booking:", error);
-      toast.error("Failed to create booking. Please try again.");
+      const errorMessage = (error as any)?.response?.data?.message || (error as Error)?.message || "Failed to create booking. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsBooking(false);
     }

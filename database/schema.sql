@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(20),
     address TEXT,
     profile_pic VARCHAR(255),
+    is_blocked BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -25,6 +26,8 @@ CREATE TABLE IF NOT EXISTS workers (
     bio TEXT,
     profile_pic VARCHAR(255),
     avg_rating DECIMAL(3, 2) DEFAULT 0.00,
+    is_blocked BOOLEAN DEFAULT FALSE,
+    is_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -106,6 +109,30 @@ CREATE TABLE IF NOT EXISTS notifications (
     message TEXT NOT NULL,
     type VARCHAR(50) NOT NULL, -- e.g., 'booking_request', 'system', 'review'
     is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (worker_id) REFERENCES workers(worker_id) ON DELETE CASCADE
+);
+
+-- Password Resets Table
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    role ENUM('user', 'worker', 'admin') NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_token (token)
+);
+
+-- Support Tickets Table
+CREATE TABLE IF NOT EXISTS support_tickets (
+    ticket_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    worker_id INT,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('open', 'in_progress', 'resolved', 'closed') DEFAULT 'open',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (worker_id) REFERENCES workers(worker_id) ON DELETE CASCADE

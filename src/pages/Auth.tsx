@@ -104,6 +104,7 @@ export default function Auth() {
         
         if (userData.phone) localStorage.setItem("userPhone", userData.phone);
         if (userData.address) localStorage.setItem("userAddress", userData.address);
+        if (userData.token) localStorage.setItem("token", userData.token);
         
         toast.success(`Welcome back, ${userData.name}!`);
         navigate("/user/dashboard");
@@ -120,6 +121,7 @@ export default function Auth() {
         localStorage.setItem("workerEmail", workerData.email);
         localStorage.setItem("workerPhone", workerData.phone);
         localStorage.setItem("workerProfilePic", workerData.profile_pic || "");
+        if (workerData.token) localStorage.setItem("token", workerData.token);
         
         toast.success(`Welcome back, ${workerData.name}!`);
         navigate("/worker/dashboard");
@@ -135,13 +137,14 @@ export default function Auth() {
         localStorage.setItem("adminName", adminData.name);
         localStorage.setItem("adminEmail", adminData.email);
         localStorage.setItem("adminProfilePic", adminData.profile_pic || "");
+        if (adminData.token) localStorage.setItem("token", adminData.token);
         
         toast.success(`Welcome back, Admin ${adminData.name}!`);
         navigate("/admin/dashboard");
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      const errorMsg = error.response?.data?.message || "Login failed. Please check your credentials.";
+      const errorMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Login failed. Please check your credentials.";
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -165,6 +168,7 @@ export default function Auth() {
       localStorage.setItem("userName", userData.name);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userProfilePic", userData.profile_pic || "");
+      if (userData.token) localStorage.setItem("token", userData.token);
       
       if (data.phone) localStorage.setItem("userPhone", data.phone);
       
@@ -172,7 +176,7 @@ export default function Auth() {
       navigate("/user/dashboard");
     } catch (error: any) {
       console.error("Registration error:", error);
-      const errorMsg = error.response?.data?.message || "Registration failed. Please try again.";
+      const errorMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Registration failed. Please try again.";
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -197,12 +201,13 @@ export default function Auth() {
       localStorage.setItem("workerEmail", data.email);
       localStorage.setItem("workerPhone", data.phone);
       localStorage.setItem("workerProfilePic", workerData.profile_pic || "");
+      if (workerData.token) localStorage.setItem("token", workerData.token);
       
       toast.success("Registration successful! You can now set up your services.");
       navigate("/worker/setup-services");
     } catch (error: any) {
       console.error("Registration error:", error);
-      const errorMsg = error.response?.data?.message || "Registration failed. Please try again.";
+      const errorMsg = (error as any)?.response?.data?.message || (error as Error)?.message || "Registration failed. Please try again.";
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);

@@ -136,7 +136,14 @@ export default function SetupServices() {
       // First register services
       console.log("Registering worker services for worker ID:", workerId);
       console.log("Selected services data:", selectedServices);
-      await registerWorkerServices(workerId, selectedServices);
+      
+      const formattedServices = selectedServices.map(({ id, rate, selected }) => ({
+        id,
+        rate,
+        selected
+      }));
+      
+      await registerWorkerServices(workerId, formattedServices);
       
       // Then update availability
       console.log("Updating worker availability for worker ID:", workerId);
