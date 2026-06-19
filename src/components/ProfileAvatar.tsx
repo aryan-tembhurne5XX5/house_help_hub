@@ -1,3 +1,5 @@
+import { getUser, logout } from "@/utils/auth";
+import client from "@/lib/apolloClient";
 
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,8 +26,9 @@ export function ProfileAvatar({ userType }: ProfileAvatarProps) {
   
   useEffect(() => {
     if (userType) {
-      const storedName = localStorage.getItem(`${userType}Name`) || '';
-      const storedAvatar = localStorage.getItem(`${userType}ProfilePic`) || '';
+      const user = getUser();
+      const storedName = user?.name || "";
+      const storedAvatar = ""; // profilePic not in user obj currently, fallback to Initials
       
       setName(storedName);
       setAvatar(storedAvatar);
@@ -34,26 +37,15 @@ export function ProfileAvatar({ userType }: ProfileAvatarProps) {
   
   if (!userType) return null;
   
-  const handleLogout = () => {
-    // Clear all auth related localStorage items
-    localStorage.removeItem('userType');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('workerId');
-    localStorage.removeItem('adminId');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userPhone');
-    localStorage.removeItem('userAddress');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('workerName');
-    localStorage.removeItem('adminName');
-    localStorage.removeItem('userProfilePic');
-    localStorage.removeItem('workerProfilePic');
-    localStorage.removeItem('adminProfilePic');
-    
-    // Redirect to auth page
+  const handleLogout = async () => {
+    logout();
+    try {
+      await client.clearStore();
+    } catch (e) {
+      console.error(e);
+    }
     navigate('/auth');
   };
-  
   const handleViewProfile = () => {
     if (userType === 'user') {
       navigate('/user/profile');

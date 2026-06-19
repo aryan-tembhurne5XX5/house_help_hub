@@ -1,3 +1,4 @@
+import { getCurrentUserId } from "@/utils/auth";
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -36,15 +37,9 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
   
   // Get admin ID from localStorage
-  const adminId = parseInt(localStorage.getItem('adminId') || '0');
+  const adminId = getCurrentUserId();
   
-  // Redirect if not logged in as admin
-  useEffect(() => {
-    if (!adminId || localStorage.getItem('userType') !== 'admin') {
-      toast.error("Please login as an admin first");
-      navigate("/auth");
-    }
-  }, [adminId, navigate]);
+  // Redirect handled by ProtectedRoute
   
   // Fetch admin dashboard data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({

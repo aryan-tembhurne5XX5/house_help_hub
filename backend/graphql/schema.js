@@ -234,7 +234,14 @@ const typeDefs = `#graphql
 
   # ─── Queries ───────────────────────────────────────────────────────────────────
 
+  type AuthPayload {
+    id: Int!
+    role: String!
+    email: String
+  }
+
   type Query {
+    me: AuthPayload
     # User
     userProfile(userId: Int!): User
     userBookings(userId: Int!): [Booking!]!

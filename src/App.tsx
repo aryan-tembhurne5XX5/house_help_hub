@@ -1,8 +1,9 @@
 
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from './components/ui/sonner';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Lazy-loaded page components
 const Home = lazy(() => import('./pages/Home'))
@@ -68,27 +69,27 @@ function App() {
             <Route path="/how-it-works" element={<HowItWorks />} />
             
             {/* User routes */}
-            <Route path="/user/dashboard" element={<UserDashboard />} />
-            <Route path="/user/book" element={<BookService />} />
-            <Route path="/user/profile" element={<UserProfile />} />
-            <Route path="/user/notifications" element={<UserNotifications />} />
-            <Route path="/user/booking/:id" element={<UserBookingDetail />} />
-            <Route path="/booking-confirmation" element={<BookingConfirmation />} />
+            <Route path="/user/dashboard" element={<ProtectedRoute role="user"><UserDashboard /></ProtectedRoute>} />
+            <Route path="/user/book" element={<ProtectedRoute role="user"><BookService /></ProtectedRoute>} />
+            <Route path="/user/profile" element={<ProtectedRoute role="user"><UserProfile /></ProtectedRoute>} />
+            <Route path="/user/notifications" element={<ProtectedRoute role="user"><UserNotifications /></ProtectedRoute>} />
+            <Route path="/user/booking/:id" element={<ProtectedRoute role="user"><UserBookingDetail /></ProtectedRoute>} />
+            <Route path="/booking-confirmation" element={<ProtectedRoute role="user"><BookingConfirmation /></ProtectedRoute>} />
             
             {/* Worker routes */}
-            <Route path="/worker/dashboard" element={<WorkerDashboard />} />
-            <Route path="/worker/setup-services" element={<SetupServices />} />
-            <Route path="/worker/profile" element={<WorkerProfile />} />
-            <Route path="/worker/booking/:id" element={<WorkerBookingDetail />} />
+            <Route path="/worker/dashboard" element={<ProtectedRoute role="worker"><WorkerDashboard /></ProtectedRoute>} />
+            <Route path="/worker/setup-services" element={<ProtectedRoute role="worker"><SetupServices /></ProtectedRoute>} />
+            <Route path="/worker/profile" element={<ProtectedRoute role="worker"><WorkerProfile /></ProtectedRoute>} />
+            <Route path="/worker/booking/:id" element={<ProtectedRoute role="worker"><WorkerBookingDetail /></ProtectedRoute>} />
             
             {/* Admin routes */}
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/profile" element={<AdminProfile />} />
-            <Route path="/admin/users" element={<UsersList />} />
-            <Route path="/admin/workers" element={<WorkersList />} />
-            <Route path="/admin/bookings" element={<BookingsList />} />
-            <Route path="/admin/services" element={<ServicesList />} />
-            <Route path="/admin/reports" element={<AdminReports />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/profile" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute role="admin"><UsersList /></ProtectedRoute>} />
+            <Route path="/admin/workers" element={<ProtectedRoute role="admin"><WorkersList /></ProtectedRoute>} />
+            <Route path="/admin/bookings" element={<ProtectedRoute role="admin"><BookingsList /></ProtectedRoute>} />
+            <Route path="/admin/services" element={<ProtectedRoute role="admin"><ServicesList /></ProtectedRoute>} />
+            <Route path="/admin/reports" element={<ProtectedRoute role="admin"><AdminReports /></ProtectedRoute>} />
             
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

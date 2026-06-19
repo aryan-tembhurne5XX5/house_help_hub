@@ -9,6 +9,36 @@ async function migrate() {
       await pool.query('ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE');
     } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') throw e; }
 
+    console.log('Adding is_superuser to users...');
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN is_superuser BOOLEAN DEFAULT FALSE');
+    } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') throw e; }
+
+    console.log('Dropping admins table if exists...');
+    try {
+      await pool.query('DROP TABLE IF EXISTS admins');
+    } catch(e) { console.error('Failed to drop admins table:', e); }
+
+    console.log('Inserting default superuser...');
+    try {
+      const [existing] = await pool.query('SELECT user_id FROM users WHERE email = ?', ['admin@example.com']);
+      if (existing.length === 0) {
+        await pool.query(
+          "INSERT INTO users (name, email, password, is_superuser, profile_pic) VALUES (?, ?, ?, TRUE, ?)",
+          [
+            'Super Admin',
+            'admin@example.com',
+            '$2b$10$wOHtW7k1FwhQU/JyrN1rh.b2xFX10C/MWkE7ukjkaYgHnmlWc1l9W',
+            'https://ui-avatars.com/api/?name=Super+Admin&background=random&color=fff'
+          ]
+        );
+        console.log('Default superuser inserted.');
+      } else {
+        await pool.query('UPDATE users SET is_superuser = TRUE WHERE email = ?', ['admin@example.com']);
+        console.log('Existing user updated to superuser.');
+      }
+    } catch(e) { console.error('Failed to insert default superuser:', e); }
+
     console.log('Adding is_blocked and is_verified to workers...');
     try {
       await pool.query('ALTER TABLE workers ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE');

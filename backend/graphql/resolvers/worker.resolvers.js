@@ -102,7 +102,7 @@ const workerResolvers = {
            WHERE b.worker_id = w.worker_id
            AND b.booking_date = ?
            AND b.booking_time = ?
-           AND b.status IN ('confirmed', 'pending')
+           AND b.status IN ('confirmed', 'completed')
          )`,
         [serviceId, dayOfWeek, timeSlot, date, time]
       );

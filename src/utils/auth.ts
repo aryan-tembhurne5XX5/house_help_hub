@@ -4,54 +4,75 @@
 
 export type UserRole = 'user' | 'worker' | 'admin';
 
+export interface AuthUser {
+  id: number;
+  name?: string;
+  email?: string;
+  role: UserRole;
+}
+
+/**
+ * Get the currently logged-in user from localStorage
+ */
+export function getUser(): AuthUser | null {
+  const userStr = localStorage.getItem('user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Get the current JWT token
+ */
+export function getToken(): string | null {
+  return localStorage.getItem('token');
+}
+
 /**
  * Check if a user is currently authenticated.
  */
 export function isAuthenticated(): boolean {
-  const userType = localStorage.getItem('userType');
-  if (!userType) return false;
-
-  // Verify the corresponding ID exists
-  switch (userType) {
-    case 'user':
-      return !!localStorage.getItem('userId');
-    case 'worker':
-      return !!localStorage.getItem('workerId');
-    case 'admin':
-      return !!localStorage.getItem('adminId');
-    default:
-      return false;
-  }
+  return !!getToken() && !!getUser();
 }
 
 /**
  * Get the current user's role, or null if not authenticated.
  */
 export function getCurrentRole(): UserRole | null {
-  const userType = localStorage.getItem('userType');
-  if (userType === 'user' || userType === 'worker' || userType === 'admin') {
-    return userType;
-  }
-  return null;
+  const user = getUser();
+  return user ? user.role : null;
 }
 
 /**
  * Get the current user's numeric ID based on their role.
  */
 export function getCurrentUserId(): number {
-  const role = getCurrentRole();
-  if (!role) return 0;
+  const user = getUser();
+  return user ? user.id : 0;
+}
 
-  switch (role) {
-    case 'user':
-      return parseInt(localStorage.getItem('userId') || '0');
-    case 'worker':
-      return parseInt(localStorage.getItem('workerId') || '0');
-    case 'admin':
-      return parseInt(localStorage.getItem('adminId') || '0');
-    default:
-      return 0;
-  }
+/**
+ * Centralized login method to store the session securely.
+ */
+export function login(token: string, user: AuthUser): void {
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
+/**
+ * Centralized logout method to clear the session completely.
+ */
+export function logout(): void {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  // Clear legacy tokens if they exist just in case
+  localStorage.removeItem('userId');
+  localStorage.removeItem('workerId');
+  localStorage.removeItem('adminId');
+  localStorage.removeItem('userType');
 }
 
 /**

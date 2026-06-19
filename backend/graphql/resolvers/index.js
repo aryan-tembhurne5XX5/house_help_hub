@@ -31,6 +31,7 @@ const JSONScalar = new GraphQLScalarType({
 const resolvers = {
   JSON: JSONScalar,
   Query: {
+    ...authResolvers.Query,
     ...userResolvers.Query,
     ...workerResolvers.Query,
     ...bookingResolvers.Query,

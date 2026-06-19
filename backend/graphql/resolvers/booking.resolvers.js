@@ -140,7 +140,7 @@ const bookingResolvers = {
            WHERE worker_id = ?
            AND booking_date = ?
            AND booking_time = ?
-           AND status IN ('confirmed', 'pending') FOR UPDATE`,
+           AND status IN ('confirmed', 'completed') FOR UPDATE`,
           [workerId, bookingDate, bookingTime]
         );
 
@@ -181,7 +181,7 @@ const bookingResolvers = {
 
       try {
         const [bookingRows] = await pool.query(
-          'SELECT user_id, worker_id, ticket_number FROM bookings WHERE booking_id = ? AND status = "pending" FOR UPDATE',
+          'SELECT user_id, worker_id, ticket_number, booking_date, booking_time FROM bookings WHERE booking_id = ? AND status = "pending" FOR UPDATE',
           [bookingId]
         );
 
@@ -202,12 +202,35 @@ const bookingResolvers = {
           throw new GraphQLError('Failed to accept booking', { extensions: { code: 'INTERNAL_SERVER_ERROR' } });
         }
 
-        // Create notification for user
+        // Create notification for the user whose booking was accepted
         await pool.query(
           `INSERT INTO notifications (user_id, worker_id, title, message, type)
            VALUES (?, NULL, 'Booking Confirmed', ?, 'booking_status')`,
           [booking.user_id, `Your booking ${booking.ticket_number} has been confirmed`]
         );
+
+        // Find overlapping pending bookings
+        const [overlappingRows] = await pool.query(
+          'SELECT booking_id, user_id, ticket_number FROM bookings WHERE worker_id = ? AND booking_date = ? AND booking_time = ? AND booking_id != ? AND status = "pending"',
+          [booking.worker_id, booking.booking_date, booking.booking_time, bookingId]
+        );
+
+        // Auto-reject overlapping bookings and notify users
+        if (overlappingRows.length > 0) {
+          const overlappingIds = overlappingRows.map(r => r.booking_id);
+          await pool.query(
+            'UPDATE bookings SET status = "rejected" WHERE booking_id IN (?)',
+            [overlappingIds]
+          );
+
+          for (const overlap of overlappingRows) {
+            await pool.query(
+              `INSERT INTO notifications (user_id, worker_id, title, message, type)
+               VALUES (?, NULL, 'Booking Rejected', ?, 'booking_status')`,
+              [overlap.user_id, `Your booking request ${overlap.ticket_number} was rejected because the worker accepted another booking for this time slot.`]
+            );
+          }
+        }
 
         await pool.query('COMMIT');
         return { message: 'Booking accepted successfully' };

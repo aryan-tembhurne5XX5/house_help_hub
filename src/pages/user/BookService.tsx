@@ -1,3 +1,4 @@
+import { getCurrentUserId } from "@/utils/auth";
 
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -71,15 +72,9 @@ export default function BookService() {
   const [step, setStep] = useState(1);
   
   // Get user ID from localStorage
-  const userId = parseInt(localStorage.getItem('userId') || '0');
+  const userId = getCurrentUserId();
   
-  // Redirect if not logged in as user
-  useEffect(() => {
-    if (!userId || localStorage.getItem('userType') !== 'user') {
-      toast.error("Please login as a user first");
-      navigate("/auth");
-    }
-  }, [userId, navigate]);
+  // Redirect handled by ProtectedRoute
   
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);

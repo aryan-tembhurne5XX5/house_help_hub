@@ -1,3 +1,4 @@
+import { getCurrentUserId } from "@/utils/auth";
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -30,15 +31,9 @@ export default function SetupServices() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Get worker ID from localStorage
-  const workerId = parseInt(localStorage.getItem('workerId') || '0');
+  const workerId = getCurrentUserId();
   
-  // Redirect if not logged in as worker
-  useEffect(() => {
-    if (!workerId || localStorage.getItem('userType') !== 'worker') {
-      toast.error("Please login as a worker first");
-      navigate("/auth");
-    }
-  }, [workerId, navigate]);
+  // Redirect handled by ProtectedRoute
   
   const { data: servicesData, isLoading: isLoadingServices, error: servicesError, refetch } = useQuery({
     queryKey: ['services'],

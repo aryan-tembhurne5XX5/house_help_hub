@@ -4,6 +4,18 @@ import bcrypt from 'bcrypt';
 import { generateToken } from '../../middleware/auth.js';
 
 const authResolvers = {
+  Query: {
+    me: async (_, __, { user }) => {
+      if (!user) {
+        throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+      return {
+        id: user.id,
+        role: user.role,
+        email: user.email,
+      };
+    },
+  },
   Mutation: {
     // ─── Register User ────────────────────────────────────────────────────────
     registerUser: async (_, { input }, { pool }) => {
@@ -155,7 +167,7 @@ const authResolvers = {
 
     // ─── Login Admin ──────────────────────────────────────────────────────────
     loginAdmin: async (_, { email, password }, { pool }) => {
-      const [admins] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
+      const [admins] = await pool.query('SELECT * FROM users WHERE email = ? AND is_superuser = TRUE', [email]);
 
       if (admins.length === 0) {
         throw new GraphQLError('Invalid email or password', { extensions: { code: 'UNAUTHENTICATED' } });
@@ -168,13 +180,14 @@ const authResolvers = {
         throw new GraphQLError('Invalid email or password', { extensions: { code: 'UNAUTHENTICATED' } });
       }
 
-      const token = generateToken({ id: admin.admin_id, email: admin.email, role: 'admin' });
+      const token = generateToken({ id: admin.user_id, email: admin.email, role: 'admin' });
 
       return {
         token,
-        admin_id: admin.admin_id,
+        admin_id: admin.user_id,
         name: admin.name,
         email: admin.email,
+        profile_pic: admin.profile_pic,
         role: 'admin',
       };
     },
@@ -227,9 +240,12 @@ const authResolvers = {
 
     // ─── Forgot Password ──────────────────────────────────────────────────────
     forgotPassword: async (_, { email, role }, { pool }) => {
-      const table = role === 'worker' ? 'workers' : role === 'admin' ? 'admins' : 'users';
+      const table = role === 'worker' ? 'workers' : 'users';
+      const queryStr = role === 'admin'
+        ? `SELECT email FROM ${table} WHERE email = ? AND is_superuser = TRUE`
+        : `SELECT email FROM ${table} WHERE email = ?`;
       
-      const [rows] = await pool.query(`SELECT email FROM ${table} WHERE email = ?`, [email]);
+      const [rows] = await pool.query(queryStr, [email]);
       if (rows.length === 0) {
         // Return success anyway to prevent email enumeration
         return { message: 'If that email exists, a reset link has been sent.' };
@@ -266,7 +282,7 @@ const authResolvers = {
       }
 
       const { email, role } = rows[0];
-      const table = role === 'worker' ? 'workers' : role === 'admin' ? 'admins' : 'users';
+      const table = role === 'worker' ? 'workers' : 'users';
       
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       

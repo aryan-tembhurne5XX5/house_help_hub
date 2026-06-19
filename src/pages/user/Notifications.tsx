@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell, Check, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { formatRelativeTime } from "@/utils/dateUtils";
 
 interface Notification {
   notification_id: number;

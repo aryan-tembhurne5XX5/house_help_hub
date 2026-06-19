@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     address TEXT,
     profile_pic VARCHAR(255),
     is_blocked BOOLEAN DEFAULT FALSE,
+    is_superuser BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -28,15 +29,6 @@ CREATE TABLE IF NOT EXISTS workers (
     avg_rating DECIMAL(3, 2) DEFAULT 0.00,
     is_blocked BOOLEAN DEFAULT FALSE,
     is_verified BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Admins Table
-CREATE TABLE IF NOT EXISTS admins (
-    admin_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -148,8 +140,8 @@ CREATE INDEX idx_notifications_worker ON notifications(worker_id, is_read);
 
 
 -- Initial Seed Data
-INSERT INTO admins (name, email, password) 
-VALUES ('Super Admin', 'admin@househelpub.com', '$2b$10$YourHashedPasswordHere');
+INSERT INTO users (name, email, password, is_superuser, profile_pic) 
+VALUES ('Super Admin', 'admin@example.com', '$2b$10$wOHtW7k1FwhQU/JyrN1rh.b2xFX10C/MWkE7ukjkaYgHnmlWc1l9W', TRUE, 'https://ui-avatars.com/api/?name=Super+Admin&background=random&color=fff');
 
 INSERT INTO services (name, description, base_price, icon_name) VALUES
 ('Cleaning', 'Deep cleaning, dusting, mopping, and organizing', 15.00, 'Sparkles'),

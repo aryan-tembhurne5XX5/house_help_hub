@@ -1,3 +1,4 @@
+import { getCurrentUserId } from "@/utils/auth";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,13 +25,7 @@ export default function UsersList() {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   // Check admin auth
-  const adminId = parseInt(localStorage.getItem('adminId') || '0');
-  useEffect(() => {
-    if (!adminId || localStorage.getItem('userType') !== 'admin') {
-      navigate("/auth");
-    }
-  }, [adminId, navigate]);
-
+  const adminId = getCurrentUserId();
   const { data: users, isLoading } = useQuery({
     queryKey: ['adminUsersList'],
     queryFn: async () => {

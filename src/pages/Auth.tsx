@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loginUser, loginWorker, loginAdmin, registerUser, registerWorker } from "@/utils/api";
 import { Loader2 } from "lucide-react";
-import { isAuthenticated, getDashboardPath } from "@/utils/auth";
+import { isAuthenticated, getDashboardPath, login } from "@/utils/auth";
 import { useEffect } from "react";
 
 // Define schemas for form validation
@@ -99,54 +99,41 @@ export default function Auth() {
       let response;
       
       if (userType === "user") {
-        response = await loginUser({
-          email: data.email,
-          password: data.password
-        });
+        response = await loginUser({ email: data.email, password: data.password });
         const userData = response.data;
         
-        localStorage.setItem("userType", "user");
-        localStorage.setItem("userId", userData.user_id);
-        localStorage.setItem("userName", userData.name);
-        localStorage.setItem("userEmail", userData.email);
-        localStorage.setItem("userProfilePic", userData.profile_pic || "");
-        
-        if (userData.phone) localStorage.setItem("userPhone", userData.phone);
-        if (userData.address) localStorage.setItem("userAddress", userData.address);
-        if (userData.token) localStorage.setItem("token", userData.token);
+        login(userData.token, {
+          id: userData.user_id,
+          name: userData.name,
+          email: userData.email,
+          role: "user"
+        });
         
         toast.success(`Welcome back, ${userData.name}!`);
         navigate("/user/dashboard");
       } else if (userType === "worker") {
-        response = await loginWorker({
-          email: data.email,
-          password: data.password
-        });
+        response = await loginWorker({ email: data.email, password: data.password });
         const workerData = response.data;
         
-        localStorage.setItem("userType", "worker");
-        localStorage.setItem("workerId", workerData.worker_id);
-        localStorage.setItem("workerName", workerData.name);
-        localStorage.setItem("workerEmail", workerData.email);
-        localStorage.setItem("workerPhone", workerData.phone);
-        localStorage.setItem("workerProfilePic", workerData.profile_pic || "");
-        if (workerData.token) localStorage.setItem("token", workerData.token);
+        login(workerData.token, {
+          id: workerData.worker_id,
+          name: workerData.name,
+          email: workerData.email,
+          role: "worker"
+        });
         
         toast.success(`Welcome back, ${workerData.name}!`);
         navigate("/worker/dashboard");
       } else if (userType === "admin") {
-        response = await loginAdmin({
-          email: data.email,
-          password: data.password
-        });
+        response = await loginAdmin({ email: data.email, password: data.password });
         const adminData = response.data;
         
-        localStorage.setItem("userType", "admin");
-        localStorage.setItem("adminId", adminData.admin_id);
-        localStorage.setItem("adminName", adminData.name);
-        localStorage.setItem("adminEmail", adminData.email);
-        localStorage.setItem("adminProfilePic", adminData.profile_pic || "");
-        if (adminData.token) localStorage.setItem("token", adminData.token);
+        login(adminData.token, {
+          id: adminData.admin_id,
+          name: adminData.name,
+          email: adminData.email,
+          role: "admin"
+        });
         
         toast.success(`Welcome back, Admin ${adminData.name}!`);
         navigate("/admin/dashboard");
@@ -172,14 +159,12 @@ export default function Auth() {
       });
       const userData = response.data;
       
-      localStorage.setItem("userType", "user");
-      localStorage.setItem("userId", userData.user_id);
-      localStorage.setItem("userName", userData.name);
-      localStorage.setItem("userEmail", data.email);
-      localStorage.setItem("userProfilePic", userData.profile_pic || "");
-      if (userData.token) localStorage.setItem("token", userData.token);
-      
-      if (data.phone) localStorage.setItem("userPhone", data.phone);
+      login(userData.token, {
+        id: userData.user_id,
+        name: userData.name,
+        email: data.email,
+        role: "user"
+      });
       
       toast.success("Registration successful! Welcome to House Help Hub.");
       navigate("/user/dashboard");
@@ -204,13 +189,12 @@ export default function Auth() {
       });
       const workerData = response.data;
       
-      localStorage.setItem("userType", "worker");
-      localStorage.setItem("workerId", workerData.worker_id);
-      localStorage.setItem("workerName", workerData.name);
-      localStorage.setItem("workerEmail", data.email);
-      localStorage.setItem("workerPhone", data.phone);
-      localStorage.setItem("workerProfilePic", workerData.profile_pic || "");
-      if (workerData.token) localStorage.setItem("token", workerData.token);
+      login(workerData.token, {
+        id: workerData.worker_id,
+        name: workerData.name,
+        email: data.email,
+        role: "worker"
+      });
       
       toast.success("Registration successful! You can now set up your services.");
       navigate("/worker/setup-services");

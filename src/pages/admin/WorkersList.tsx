@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAllWorkers, verifyWorker, blockWorker } from "@/utils/api";
+import { getAllWorkers, verifyWorker, blockWorker, deleteWorker } from "@/utils/api";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Loader2, Check, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/dateUtils";
 
@@ -57,6 +57,22 @@ export default function WorkersList() {
     } catch (error) {
       console.error("Error toggling block status:", error);
       toast.error("Failed to change worker status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteWorker = async (id: number) => {
+    if (!window.confirm("Are you sure you want to completely delete this worker? This action cannot be undone.")) return;
+    
+    setProcessingId(id);
+    try {
+      await deleteWorker(id);
+      toast.success("Worker deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ['allWorkers'] });
+    } catch (error: any) {
+      console.error("Error deleting worker:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete worker");
     } finally {
       setProcessingId(null);
     }
@@ -139,6 +155,14 @@ export default function WorkersList() {
                               ) : (
                                 <><ShieldAlert className="h-4 w-4 mr-1" /> Block</>
                               )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={processingId === worker.worker_id}
+                              onClick={() => handleDeleteWorker(worker.worker_id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

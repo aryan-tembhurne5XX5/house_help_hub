@@ -1,3 +1,5 @@
+import { getUser } from "@/utils/auth";
+import { getCurrentUserId } from "@/utils/auth";
 
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
@@ -16,20 +18,14 @@ export default function AdminProfile() {
   const [isSaving, setIsSaving] = useState(false);
   
   // Get admin ID from localStorage
-  const adminId = parseInt(localStorage.getItem('adminId') || '0');
+  const adminId = getCurrentUserId();
   
-  // Redirect if not logged in as admin
-  useEffect(() => {
-    if (!adminId || localStorage.getItem('userType') !== 'admin') {
-      toast.error("Please login as an admin first");
-      navigate("/auth");
-    }
-  }, [adminId, navigate]);
+  // Redirect handled by ProtectedRoute
   
   const [profileData, setProfileData] = useState({
-    name: localStorage.getItem('adminName') || '',
-    email: localStorage.getItem('adminEmail') || '',
-    profilePic: localStorage.getItem('adminProfilePic') || '',
+    name: getUser()?.name || "",
+    email: getUser()?.email || "",
+    profilePic: "",
   });
   
   // Mock handleSave for admin

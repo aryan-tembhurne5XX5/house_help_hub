@@ -144,7 +144,7 @@ const adminResolvers = {
         await pool.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
         await pool.query('DELETE FROM bookings WHERE user_id = ?', [userId]);
 
-        const [result] = await pool.query('DELETE FROM users WHERE user_id = ?', [userId]);
+        const [result] = await pool.query('DELETE FROM users WHERE user_id = ? AND is_superuser = FALSE', [userId]);
 
         if (result.affectedRows === 0) {
           await pool.query('ROLLBACK');

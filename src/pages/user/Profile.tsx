@@ -1,3 +1,4 @@
+import { getCurrentUserId } from "@/utils/auth";
 
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
@@ -19,15 +20,9 @@ export default function UserProfile() {
   const [isSaving, setIsSaving] = useState(false);
   
   // Get user ID from localStorage
-  const userId = parseInt(localStorage.getItem('userId') || '0');
+  const userId = getCurrentUserId();
   
-  // Redirect if not logged in as user
-  useEffect(() => {
-    if (!userId || localStorage.getItem('userType') !== 'user') {
-      toast.error("Please login as a user first");
-      navigate("/auth");
-    }
-  }, [userId, navigate]);
+  // Redirect handled by ProtectedRoute
   
   const { data: profile, isLoading, error, refetch } = useQuery({
     queryKey: ['userProfile', userId],
