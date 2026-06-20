@@ -181,7 +181,7 @@ export default function UserDashboard() {
                           </div>
                           
                           <div>
-                            <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
+                            <p className="font-medium">Price: ₹{parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
                           <div className="flex flex-wrap gap-2">
@@ -222,7 +222,7 @@ export default function UserDashboard() {
                           </p>
                           
                           <div>
-                            <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
+                            <p className="font-medium">Price: ₹{parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
                           <Button 
@@ -293,7 +293,7 @@ export default function UserDashboard() {
                           </div>
                           
                           <div>
-                            <p className="font-medium">Price: ${parseFloat(booking.total_price.toString()).toFixed(2)}</p>
+                            <p className="font-medium">Price: ₹{parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
                           <div className="flex flex-wrap gap-2">

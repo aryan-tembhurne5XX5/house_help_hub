@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { getWorkerRequests, acceptBooking, rejectBooking, completeBooking } from "@/utils/api";
@@ -37,14 +37,14 @@ interface ServiceRequest {
 
 export default function WorkerDashboard() {
   const navigate = useNavigate();
-  
+
   // Get worker ID from localStorage
   const workerId = getCurrentUserId();
-  
+
   // Redirect handled by ProtectedRoute
-  
+
   const [processingBookingId, setProcessingBookingId] = useState<number | null>(null);
-  
+
   // Fetch worker's service requests
   const { data: requests, isLoading, refetch } = useQuery({
     queryKey: ['workerRequests', workerId],
@@ -55,13 +55,13 @@ export default function WorkerDashboard() {
     enabled: !!workerId,
     refetchOnWindowFocus: true,
   });
-  
+
   const activeRequests = requests?.filter(r => r.status === "pending" || r.status === "confirmed" || r.status === "accepted") || [];
   const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected" || r.status === "cancelled") || [];
-  
+
   const handleAccept = async (requestId: number) => {
     setProcessingBookingId(requestId);
-    
+
     try {
       await acceptBooking(requestId);
       toast.success("Service request accepted!");
@@ -73,10 +73,10 @@ export default function WorkerDashboard() {
       setProcessingBookingId(null);
     }
   };
-  
+
   const handleReject = async (requestId: number) => {
     setProcessingBookingId(requestId);
-    
+
     try {
       await rejectBooking(requestId);
       toast.info("Service request rejected");
@@ -91,7 +91,7 @@ export default function WorkerDashboard() {
 
   const handleComplete = async (requestId: number) => {
     setProcessingBookingId(requestId);
-    
+
     try {
       await completeBooking(requestId);
       toast.success("Job marked as completed successfully!");
@@ -103,7 +103,7 @@ export default function WorkerDashboard() {
       setProcessingBookingId(null);
     }
   };
-  
+
   const getTotalEarnings = () => {
     return requests
       ?.filter(r => r.status === "completed")
@@ -118,7 +118,7 @@ export default function WorkerDashboard() {
             <h1 className="text-3xl font-bold">Worker Dashboard</h1>
             <p className="text-gray-500 mt-1">Manage your service requests and schedule</p>
           </div>
-          
+
           <div className="mt-4 sm:mt-0 flex gap-2">
             <Link to="/worker/profile">
               <Button variant="outline">
@@ -132,7 +132,7 @@ export default function WorkerDashboard() {
             </Link>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
@@ -142,7 +142,7 @@ export default function WorkerDashboard() {
               <p className="text-3xl font-bold">{activeRequests.filter(r => r.status === "pending").length}</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle>Completed Jobs</CardTitle>
@@ -151,25 +151,25 @@ export default function WorkerDashboard() {
               <p className="text-3xl font-bold">{requests?.filter(r => r.status === "completed").length || 0}</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle>Total Earnings</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">
-                ${getTotalEarnings().toFixed(2)}
+                ₹{getTotalEarnings().toFixed(2)}
               </p>
             </CardContent>
           </Card>
         </div>
-        
+
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="active">Active Requests</TabsTrigger>
             <TabsTrigger value="past">Past Requests</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="active">
             <Card>
               <CardHeader>
@@ -227,43 +227,43 @@ export default function WorkerDashboard() {
                                 {getStatusLabel(request.status)}
                               </Badge>
                             </TableCell>
-                            <TableCell>${parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
+                            <TableCell>₹{parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-2">
-                              {request.status === "pending" && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleAccept(request.booking_id)}
-                                    disabled={processingBookingId === request.booking_id}
-                                  >
-                                    {processingBookingId === request.booking_id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Check className="h-4 w-4 mr-1" />
-                                    )}
-                                    Accept
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                    onClick={() => handleReject(request.booking_id)}
-                                    disabled={processingBookingId === request.booking_id}
-                                  >
-                                    {processingBookingId === request.booking_id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <X className="h-4 w-4 mr-1" />
-                                    )}
-                                    Decline
-                                  </Button>
-                                </>
-                              )}
+                                {request.status === "pending" && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleAccept(request.booking_id)}
+                                      disabled={processingBookingId === request.booking_id}
+                                    >
+                                      {processingBookingId === request.booking_id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Check className="h-4 w-4 mr-1" />
+                                      )}
+                                      Accept
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                      onClick={() => handleReject(request.booking_id)}
+                                      disabled={processingBookingId === request.booking_id}
+                                    >
+                                      {processingBookingId === request.booking_id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <X className="h-4 w-4 mr-1" />
+                                      )}
+                                      Decline
+                                    </Button>
+                                  </>
+                                )}
                                 {request.status === "confirmed" && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="default"
                                     onClick={() => handleComplete(request.booking_id)}
                                     disabled={processingBookingId === request.booking_id}
@@ -293,7 +293,7 @@ export default function WorkerDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="past">
             <Card>
               <CardHeader>
@@ -344,7 +344,7 @@ export default function WorkerDashboard() {
                                 {getStatusLabel(request.status)}
                               </Badge>
                             </TableCell>
-                            <TableCell>${parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
+                            <TableCell>₹{parseFloat(request.total_price.toString()).toFixed(2)}</TableCell>
                             <TableCell>
                               <Link to={`/worker/booking/${request.booking_id}`}>
                                 <Button size="sm" variant="outline">

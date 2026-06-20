@@ -75,7 +75,7 @@ export default function BookingsList() {
                             {getStatusLabel(booking.status)}
                           </Badge>
                         </TableCell>
-                        <TableCell>${parseFloat(booking.total_price.toString()).toFixed(2)}</TableCell>
+                        <TableCell>₹{parseFloat(booking.total_price.toString()).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

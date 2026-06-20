@@ -24,6 +24,7 @@ import {
   CheckCircle,
   XCircle,
   DollarSign,
+  IndianRupeeIcon,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,12 +36,12 @@ import { formatDate } from "@/utils/dateUtils";
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
-  
+
   // Get admin ID from localStorage
   const adminId = getCurrentUserId();
-  
+
   // Redirect handled by ProtectedRoute
-  
+
   // Fetch admin dashboard data
   const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
     queryKey: ['adminDashboard'],
@@ -51,7 +52,7 @@ export default function AdminDashboard() {
     enabled: !!adminId,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
-  
+
   // Fetch users
   const { data: users, isLoading: isUsersLoading } = useQuery({
     queryKey: ['adminUsers'],
@@ -61,7 +62,7 @@ export default function AdminDashboard() {
     },
     enabled: tab === 'users' && !!adminId,
   });
-  
+
   // Fetch workers
   const { data: workers, isLoading: isWorkersLoading } = useQuery({
     queryKey: ['adminWorkers'],
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
     },
     enabled: tab === 'workers' && !!adminId,
   });
-  
+
   // Fetch bookings
   const { data: bookings, isLoading: isBookingsLoading } = useQuery({
     queryKey: ['adminBookings'],
@@ -81,9 +82,9 @@ export default function AdminDashboard() {
     },
     enabled: tab === 'bookings' && !!adminId,
   });
-  
 
-  
+
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -96,7 +97,7 @@ export default function AdminDashboard() {
         return 'outline';
     }
   };
-  
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -106,7 +107,7 @@ export default function AdminDashboard() {
             My Profile
           </Button>
         </div>
-        
+
         {isDashboardLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -150,16 +151,16 @@ export default function AdminDashboard() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center">
-                    <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <IndianRupeeIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                     Total Revenue
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold">${dashboardData?.totalRevenue?.toFixed(2) || '0.00'}</p>
+                  <p className="text-2xl font-bold">₹{dashboardData?.totalRevenue?.toFixed(2) || '0.00'}</p>
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/admin/users')}>
                 <CardHeader>
@@ -207,7 +208,7 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
-        
+
       </div>
     </Layout>
   );

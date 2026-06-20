@@ -217,7 +217,7 @@ export default function WorkerBookingDetail() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Your Hourly Rate</span>
-                  <span>${(parseFloat(booking.total_price) / booking.duration_hours).toFixed(2)}/hr</span>
+                  <span>₹{(parseFloat(booking.total_price) / booking.duration_hours).toFixed(2)}/hr</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Duration</span>
@@ -225,7 +225,7 @@ export default function WorkerBookingDetail() {
                 </div>
                 <div className="pt-4 border-t flex justify-between font-semibold text-lg text-green-700">
                   <span>Total Earnings</span>
-                  <span>${parseFloat(booking.total_price).toFixed(2)}</span>
+                  <span>₹{parseFloat(booking.total_price).toFixed(2)}</span>
                 </div>
               </CardContent>
             </Card>

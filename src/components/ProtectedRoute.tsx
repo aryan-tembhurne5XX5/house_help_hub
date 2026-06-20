@@ -24,7 +24,7 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
   const location = useLocation();
   const token = getToken();
-  
+
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -37,7 +37,7 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
         if (isMounted) setLoading(false);
         return;
       }
-      
+
       try {
         const result = await client.query({ query: ME_QUERY, fetchPolicy: 'network-only' });
         if (isMounted) {
@@ -58,9 +58,9 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
         if (isMounted) setLoading(false);
       }
     }
-    
+
     verify();
-    
+
     return () => { isMounted = false; };
   }, [token]);
 

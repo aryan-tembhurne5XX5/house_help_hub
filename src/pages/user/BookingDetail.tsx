@@ -204,7 +204,7 @@ export default function BookingDetail() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Base Price</span>
-                  <span>${(parseFloat(booking.total_price) / booking.duration_hours).toFixed(2)}/hr</span>
+                  <span>₹{(parseFloat(booking.total_price) / booking.duration_hours).toFixed(2)}/hr</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Duration</span>

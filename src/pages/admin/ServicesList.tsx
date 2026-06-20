@@ -64,7 +64,7 @@ export default function ServicesList() {
                         <TableCell className="font-medium">{service.name}</TableCell>
                         <TableCell className="capitalize">{service.category || "General"}</TableCell>
                         <TableCell className="max-w-md truncate">{service.description}</TableCell>
-                        <TableCell>${parseFloat(service.base_price.toString()).toFixed(2)}</TableCell>
+                        <TableCell>₹{parseFloat(service.base_price.toString()).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

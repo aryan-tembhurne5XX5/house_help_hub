@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { getAdminDashboardData } from "@/utils/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, TrendingUp, Users, UserCog, CalendarDays, DollarSign } from "lucide-react";
+import { Loader2, TrendingUp, Users, UserCog, CalendarDays, DollarSign, IndianRupeeIcon } from "lucide-react";
 
 export default function Reports() {
   const { data: stats, isLoading } = useQuery({
@@ -19,7 +19,7 @@ export default function Reports() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Reports & Analytics</h1>
         </div>
-        
+
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -30,12 +30,12 @@ export default function Reports() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center text-muted-foreground">
-                    <DollarSign className="mr-2 h-4 w-4" />
+                    <IndianRupeeIcon className="mr-2 h-4 w-4" />
                     Total Revenue
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-green-600">${stats?.totalRevenue?.toFixed(2) || '0.00'}</p>
+                  <p className="text-3xl font-bold text-green-600">₹{stats?.totalRevenue?.toFixed(2) || '0.00'}</p>
                 </CardContent>
               </Card>
               <Card>
