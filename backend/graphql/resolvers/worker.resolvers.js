@@ -1,11 +1,18 @@
 
 import { GraphQLError } from 'graphql';
+import { requireWorker, requireAuth } from '../../middleware/permissions.js';
 
 const workerResolvers = {
   Query: {
     // ─── Get Worker Profile ─────────────────────────────────────────────────
-    workerProfile: async (_, { workerId }, { pool }) => {
-      const [rows] = await pool.query(
+    workerProfile: async (_, { workerId }, context) => {
+      // "workerProfile, workerRequests: Worker only. Must also verify ownership."
+      requireWorker(context);
+      if (context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      const [rows] = await context.pool.query(
         'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, created_at FROM workers WHERE worker_id = ?',
         [workerId]
       );
@@ -15,7 +22,7 @@ const workerResolvers = {
       }
 
       // Get worker's services
-      const [services] = await pool.query(
+      const [services] = await context.pool.query(
         `SELECT s.service_id, s.name, ws.price_per_hour 
          FROM worker_services ws
          JOIN services s ON ws.service_id = s.service_id
@@ -24,13 +31,13 @@ const workerResolvers = {
       );
 
       // Get worker's availability
-      const [availability] = await pool.query(
+      const [availability] = await context.pool.query(
         'SELECT day_of_week, time_slot, is_available FROM worker_availability WHERE worker_id = ?',
         [workerId]
       );
 
       // Get worker's reviews
-      const [reviews] = await pool.query(
+      const [reviews] = await context.pool.query(
         `SELECT r.review_id, r.rating, r.comment, r.created_at,
                 u.name AS reviewer_name, u.profile_pic AS reviewer_pic
          FROM reviews r
@@ -52,8 +59,13 @@ const workerResolvers = {
     },
 
     // ─── Get Worker's Service Requests ──────────────────────────────────────
-    workerRequests: async (_, { workerId }, { pool }) => {
-      const [rows] = await pool.query(
+    workerRequests: async (_, { workerId }, context) => {
+      requireWorker(context);
+      if (context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      const [rows] = await context.pool.query(
         `SELECT b.*, u.name AS user_name, u.profile_pic AS user_profile_pic, u.phone AS user_phone,
                 s.name AS service_name, b.ticket_number
          FROM bookings b
@@ -73,7 +85,9 @@ const workerResolvers = {
     },
 
     // ─── Get Available Workers ──────────────────────────────────────────────
-    availableWorkers: async (_, { serviceId, date, time }, { pool }) => {
+    availableWorkers: async (_, { serviceId, date, time }, context) => {
+      requireAuth(context);
+
       // Convert day of week from date
       const bookingDate = new Date(date);
       const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][bookingDate.getDay()];
@@ -88,7 +102,7 @@ const workerResolvers = {
       }
 
       // Find available workers who provide this service and are available at the requested time
-      const [rows] = await pool.query(
+      const [rows] = await context.pool.query(
         `SELECT w.worker_id, w.name, w.phone, w.profile_pic, w.avg_rating, ws.price_per_hour 
          FROM workers w
          JOIN worker_services ws ON w.worker_id = ws.worker_id
@@ -112,10 +126,13 @@ const workerResolvers = {
         avg_rating: r.avg_rating ? parseFloat(r.avg_rating) : 0,
       }));
     },
+
     // ─── Search Workers ─────────────────────────────────────────────────────
-    searchWorkers: async (_, { query }, { pool }) => {
+    searchWorkers: async (_, { query }, context) => {
+      requireAuth(context);
+
       const searchTerm = `%${query}%`;
-      const [rows] = await pool.query(
+      const [rows] = await context.pool.query(
         `SELECT worker_id, name, email, phone, bio, profile_pic, avg_rating 
          FROM workers 
          WHERE name LIKE ? OR bio LIKE ? 
@@ -129,8 +146,10 @@ const workerResolvers = {
     },
 
     // ─── Worker Reviews ─────────────────────────────────────────────────────
-    workerReviews: async (_, { workerId }, { pool }) => {
-      const [rows] = await pool.query(
+    workerReviews: async (_, { workerId }, context) => {
+      requireAuth(context);
+
+      const [rows] = await context.pool.query(
         `SELECT r.review_id, r.rating, r.comment, r.created_at,
                 u.name AS reviewer_name, u.profile_pic AS reviewer_pic
          FROM reviews r
@@ -146,10 +165,15 @@ const workerResolvers = {
 
   Mutation: {
     // ─── Update Worker Profile ──────────────────────────────────────────────
-    updateWorkerProfile: async (_, { workerId, input }, { pool }) => {
+    updateWorkerProfile: async (_, { workerId, input }, context) => {
+      requireWorker(context);
+      if (context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
       const { name, phone, address, bio } = input;
 
-      const [result] = await pool.query(
+      const [result] = await context.pool.query(
         'UPDATE workers SET name = ?, phone = ?, address = ?, bio = ? WHERE worker_id = ?',
         [name, phone, address || null, bio || null, workerId]
       );
@@ -158,7 +182,7 @@ const workerResolvers = {
         throw new GraphQLError('Worker not found', { extensions: { code: 'NOT_FOUND' } });
       }
 
-      const [updatedWorker] = await pool.query(
+      const [updatedWorker] = await context.pool.query(
         'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, created_at FROM workers WHERE worker_id = ?',
         [workerId]
       );
@@ -170,58 +194,68 @@ const workerResolvers = {
     },
 
     // ─── Register Worker Services ───────────────────────────────────────────
-    registerWorkerServices: async (_, { workerId, services }, { pool }) => {
-      await pool.query('START TRANSACTION');
+    registerWorkerServices: async (_, { workerId, services }, context) => {
+      requireWorker(context);
+      if (context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      await context.pool.query('START TRANSACTION');
 
       try {
         // Delete existing worker services
-        await pool.query('DELETE FROM worker_services WHERE worker_id = ?', [workerId]);
+        await context.pool.query('DELETE FROM worker_services WHERE worker_id = ?', [workerId]);
 
         // Insert new worker services
         const selectedServices = services.filter(service => service.selected);
 
         if (selectedServices.length === 0) {
-          await pool.query('ROLLBACK');
+          await context.pool.query('ROLLBACK');
           throw new GraphQLError('At least one service must be selected', { extensions: { code: 'BAD_USER_INPUT' } });
         }
 
         for (const service of selectedServices) {
-          await pool.query(
+          await context.pool.query(
             'INSERT INTO worker_services (worker_id, service_id, price_per_hour) VALUES (?, ?, ?)',
             [workerId, service.id, service.rate]
           );
         }
 
-        await pool.query('COMMIT');
+        await context.pool.query('COMMIT');
         return { message: 'Worker services updated successfully' };
       } catch (error) {
-        await pool.query('ROLLBACK');
+        await context.pool.query('ROLLBACK');
         throw error;
       }
     },
 
     // ─── Update Worker Availability ─────────────────────────────────────────
-    updateWorkerAvailability: async (_, { workerId, availability }, { pool }) => {
-      await pool.query('START TRANSACTION');
+    updateWorkerAvailability: async (_, { workerId, availability }, context) => {
+      requireWorker(context);
+      if (context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      await context.pool.query('START TRANSACTION');
 
       try {
         // Delete existing worker availability
-        await pool.query('DELETE FROM worker_availability WHERE worker_id = ?', [workerId]);
+        await context.pool.query('DELETE FROM worker_availability WHERE worker_id = ?', [workerId]);
 
         // Insert new worker availability
         for (const [day, slots] of Object.entries(availability)) {
           for (const [timeSlot, isAvailable] of Object.entries(slots)) {
-            await pool.query(
+            await context.pool.query(
               'INSERT INTO worker_availability (worker_id, day_of_week, time_slot, is_available) VALUES (?, ?, ?, ?)',
               [workerId, day, timeSlot, isAvailable ? 1 : 0]
             );
           }
         }
 
-        await pool.query('COMMIT');
+        await context.pool.query('COMMIT');
         return { message: 'Worker availability updated successfully' };
       } catch (error) {
-        await pool.query('ROLLBACK');
+        await context.pool.query('ROLLBACK');
         throw error;
       }
     },

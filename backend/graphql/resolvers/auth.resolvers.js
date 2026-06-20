@@ -1,7 +1,56 @@
 
 import { GraphQLError } from 'graphql';
 import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import xss from 'xss';
 import { generateToken } from '../../middleware/auth.js';
+
+// Simple in-memory rate limiter for auth mutations
+const rateLimitCache = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_REQUESTS = 100;
+
+const checkRateLimit = (ip, action) => {
+  const key = `${ip}:${action}`;
+  const now = Date.now();
+  if (!rateLimitCache.has(key)) {
+    rateLimitCache.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return;
+  }
+  const record = rateLimitCache.get(key);
+  if (now > record.resetAt) {
+    rateLimitCache.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return;
+  }
+  if (record.count >= MAX_REQUESTS) {
+    throw new GraphQLError('Too many requests, please try again later.', { extensions: { code: 'TOO_MANY_REQUESTS' } });
+  }
+  record.count += 1;
+};
+
+// Zod schemas
+const registerUserSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+});
+
+const registerWorkerSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  address: z.string().optional().nullable(),
+  bio: z.string().optional().nullable(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 
 const authResolvers = {
   Query: {
@@ -18,19 +67,17 @@ const authResolvers = {
   },
   Mutation: {
     // ─── Register User ────────────────────────────────────────────────────────
-    registerUser: async (_, { input }, { pool }) => {
-      const { name, email, password, phone, address } = input;
+    registerUser: async (_, { input }, { pool, req }) => {
+      if (req && req.ip) checkRateLimit(req.ip, 'registerUser');
 
       // Validate input
-      if (!name || name.length < 2) {
-        throw new GraphQLError('Name must be at least 2 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+      const parseResult = registerUserSchema.safeParse(input);
+      if (!parseResult.success) {
+        throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
       }
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        throw new GraphQLError('Please enter a valid email address', { extensions: { code: 'BAD_USER_INPUT' } });
-      }
-      if (!password || password.length < 6) {
-        throw new GraphQLError('Password must be at least 6 characters', { extensions: { code: 'BAD_USER_INPUT' } });
-      }
+
+      let { name, email, password, phone, address } = parseResult.data;
+      address = address ? xss(address) : null;
 
       // Check if user already exists
       const [existingUsers] = await pool.query('SELECT user_id FROM users WHERE email = ?', [email]);
@@ -64,21 +111,17 @@ const authResolvers = {
     },
 
     // ─── Register Worker ──────────────────────────────────────────────────────
-    registerWorker: async (_, { input }, { pool }) => {
-      const { name, email, password, phone, address, bio } = input;
+    registerWorker: async (_, { input }, { pool, req }) => {
+      if (req && req.ip) checkRateLimit(req.ip, 'registerWorker');
 
-      if (!name || name.length < 2) {
-        throw new GraphQLError('Name must be at least 2 characters', { extensions: { code: 'BAD_USER_INPUT' } });
+      const parseResult = registerWorkerSchema.safeParse(input);
+      if (!parseResult.success) {
+        throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
       }
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        throw new GraphQLError('Please enter a valid email address', { extensions: { code: 'BAD_USER_INPUT' } });
-      }
-      if (!password || password.length < 6) {
-        throw new GraphQLError('Password must be at least 6 characters', { extensions: { code: 'BAD_USER_INPUT' } });
-      }
-      if (!phone || phone.length < 10) {
-        throw new GraphQLError('Phone number is required and must be at least 10 digits', { extensions: { code: 'BAD_USER_INPUT' } });
-      }
+
+      let { name, email, password, phone, address, bio } = parseResult.data;
+      address = address ? xss(address) : null;
+      bio = bio ? xss(bio) : null;
 
       const [existingWorkers] = await pool.query('SELECT worker_id FROM workers WHERE email = ?', [email]);
       if (existingWorkers.length > 0) {
@@ -106,7 +149,15 @@ const authResolvers = {
     },
 
     // ─── Login User ───────────────────────────────────────────────────────────
-    loginUser: async (_, { email, password }, { pool }) => {
+    loginUser: async (_, args, { pool, req }) => {
+      if (req && req.ip) checkRateLimit(req.ip, 'loginUser');
+
+      const parseResult = loginSchema.safeParse(args);
+      if (!parseResult.success) {
+        throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      const { email, password } = parseResult.data;
+
       const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
 
       if (users.length === 0) {
@@ -118,6 +169,11 @@ const authResolvers = {
 
       if (!passwordMatch) {
         throw new GraphQLError('Invalid email or password', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+
+      // Check if user is blocked
+      if (user.is_blocked) {
+        throw new GraphQLError('Account blocked', { extensions: { code: 'FORBIDDEN' } });
       }
 
       const token = generateToken({ id: user.user_id, email: user.email, role: 'user' });
@@ -135,7 +191,15 @@ const authResolvers = {
     },
 
     // ─── Login Worker ─────────────────────────────────────────────────────────
-    loginWorker: async (_, { email, password }, { pool }) => {
+    loginWorker: async (_, args, { pool, req }) => {
+      if (req && req.ip) checkRateLimit(req.ip, 'loginWorker');
+
+      const parseResult = loginSchema.safeParse(args);
+      if (!parseResult.success) {
+        throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      const { email, password } = parseResult.data;
+
       const [workers] = await pool.query('SELECT * FROM workers WHERE email = ?', [email]);
 
       if (workers.length === 0) {
@@ -147,6 +211,11 @@ const authResolvers = {
 
       if (!passwordMatch) {
         throw new GraphQLError('Invalid email or password', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+
+      // Check if worker is blocked
+      if (worker.is_blocked) {
+        throw new GraphQLError('Account blocked', { extensions: { code: 'FORBIDDEN' } });
       }
 
       const token = generateToken({ id: worker.worker_id, email: worker.email, role: 'worker' });
@@ -166,7 +235,15 @@ const authResolvers = {
     },
 
     // ─── Login Admin ──────────────────────────────────────────────────────────
-    loginAdmin: async (_, { email, password }, { pool }) => {
+    loginAdmin: async (_, args, { pool, req }) => {
+      if (req && req.ip) checkRateLimit(req.ip, 'loginAdmin');
+
+      const parseResult = loginSchema.safeParse(args);
+      if (!parseResult.success) {
+        throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      const { email, password } = parseResult.data;
+
       const [admins] = await pool.query('SELECT * FROM users WHERE email = ? AND is_superuser = TRUE', [email]);
 
       if (admins.length === 0) {
@@ -178,6 +255,11 @@ const authResolvers = {
 
       if (!passwordMatch) {
         throw new GraphQLError('Invalid email or password', { extensions: { code: 'UNAUTHENTICATED' } });
+      }
+
+      // Check if admin is blocked
+      if (admin.is_blocked) {
+        throw new GraphQLError('Account blocked', { extensions: { code: 'FORBIDDEN' } });
       }
 
       const token = generateToken({ id: admin.user_id, email: admin.email, role: 'admin' });
@@ -192,13 +274,17 @@ const authResolvers = {
       };
     },
 
-    // ─── Change User Password ─────────────────────────────────────────────────
-    changeUserPassword: async (_, { userId, currentPassword, newPassword }, { pool }) => {
+    // ─── Change User Password ─────────────────────────────────────────────
+    changeUserPassword: async (_, { userId, currentPassword, newPassword }, context) => {
+      if (!context.user || context.user.role !== 'user' || context.user.id !== userId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
       if (!newPassword || newPassword.length < 6) {
         throw new GraphQLError('New password must be at least 6 characters', { extensions: { code: 'BAD_USER_INPUT' } });
       }
 
-      const [users] = await pool.query('SELECT password FROM users WHERE user_id = ?', [userId]);
+      const [users] = await context.pool.query('SELECT password FROM users WHERE user_id = ?', [userId]);
       if (users.length === 0) {
         throw new GraphQLError('User not found', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -209,19 +295,22 @@ const authResolvers = {
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await pool.query('UPDATE users SET password = ? WHERE user_id = ?', [hashedPassword, userId]);
+      await context.pool.query('UPDATE users SET password = ? WHERE user_id = ?', [hashedPassword, userId]);
 
       return { message: 'Password updated successfully' };
     },
 
-    // ─── Change Worker Password ───────────────────────────────────────────────
-    changeWorkerPassword: async (_, { workerId, currentPassword, newPassword }, { pool }) => {
-      // Validate input
+    // ─── Change Worker Password ───────────────────────────────────────────
+    changeWorkerPassword: async (_, { workerId, currentPassword, newPassword }, context) => {
+      if (!context.user || context.user.role !== 'worker' || context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
       if (!newPassword || newPassword.length < 6) {
         throw new GraphQLError('New password must be at least 6 characters', { extensions: { code: 'BAD_USER_INPUT' } });
       }
 
-      const [rows] = await pool.query('SELECT password FROM workers WHERE worker_id = ?', [workerId]);
+      const [rows] = await context.pool.query('SELECT password FROM workers WHERE worker_id = ?', [workerId]);
       if (rows.length === 0) {
         throw new GraphQLError('Worker not found', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -233,7 +322,7 @@ const authResolvers = {
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await pool.query('UPDATE workers SET password = ? WHERE worker_id = ?', [hashedPassword, workerId]);
+      await context.pool.query('UPDATE workers SET password = ? WHERE worker_id = ?', [hashedPassword, workerId]);
 
       return { message: 'Password changed successfully' };
     },

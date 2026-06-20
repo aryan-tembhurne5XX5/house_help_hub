@@ -1,22 +1,27 @@
 import { GraphQLError } from 'graphql';
+import xss from 'xss';
+import { requireAuth } from '../../middleware/permissions.js';
 
 const supportResolvers = {
   Mutation: {
     // ─── Create Support Ticket ──────────────────────────────────────────────
-    createSupportTicket: async (_, { subject, message }, { pool, user }) => {
-      // Allow unauthenticated users to create tickets as well (or restrict if user is provided)
+    createSupportTicket: async (_, { subject, message }, context) => {
+      requireAuth(context);
+
       let userId = null;
       let workerId = null;
 
-      if (user) {
-        if (user.role === 'user') userId = user.id;
-        if (user.role === 'worker') workerId = user.id;
-      }
+      if (context.user.role === 'user') userId = context.user.id;
+      if (context.user.role === 'worker') workerId = context.user.id;
+
+      // Sanitize inputs for XSS
+      const sanitizedSubject = xss(subject);
+      const sanitizedMessage = xss(message);
 
       try {
-        await pool.query(
+        await context.pool.query(
           'INSERT INTO support_tickets (user_id, worker_id, subject, message, status) VALUES (?, ?, ?, ?, ?)',
-          [userId, workerId, subject, message, 'open']
+          [userId, workerId, sanitizedSubject, sanitizedMessage, 'open']
         );
         return { message: 'Support ticket submitted successfully. Our team will review it shortly.' };
       } catch (error) {

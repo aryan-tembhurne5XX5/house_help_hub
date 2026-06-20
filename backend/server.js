@@ -25,15 +25,29 @@ await connectDB();
 
 // ─── Middleware ─────────────────────────────────────────────────────────────
 
-// Security Headers (allow GraphQL introspection in dev)
+// Security Headers (Helmet)
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  contentSecurityPolicy: process.env.NODE_ENV === 'production'
+    ? {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          imgSrc: ["'self'", "data:", "https://ui-avatars.com"],
+          connectSrc: ["'self'"],
+        },
+      }
+    : false, // Disable CSP in development so Apollo Sandbox can load
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS configuration
+// CORS configuration - strict origins
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:8080',
+  origin: [
+    'http://localhost:4173',
+    'http://localhost:8080'
+  ],
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -60,6 +74,7 @@ app.use('/graphql', limiter);
 const apolloServer = new ApolloServer({
   typeDefs,
   resolvers,
+  introspection: process.env.NODE_ENV !== 'production',
   formatError: (formattedError, error) => {
     // Log errors in development with full details
     if (process.env.NODE_ENV !== 'production') {
@@ -88,10 +103,29 @@ app.use(
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
           const token = authHeader.split(' ')[1];
-          user = verifyToken(token);
+          const decoded = verifyToken(token);
+          
+          if (decoded) {
+            // Check if user still exists and is not blocked
+            const table = decoded.role === 'worker' ? 'workers' : 'users';
+            const idField = decoded.role === 'worker' ? 'worker_id' : 'user_id';
+            
+            const [rows] = await pool.query(`SELECT is_blocked FROM ${table} WHERE ${idField} = ?`, [decoded.id]);
+            
+            if (rows.length === 0) {
+              throw new Error('User not found');
+            }
+            if (rows[0].is_blocked) {
+              throw new Error('Account blocked');
+            }
+            user = decoded;
+          }
         }
       } catch (error) {
-        // Token is invalid or expired — user remains null
+        if (error.message === 'Account blocked') {
+            throw new Error('Account blocked');
+        }
+        // Token is invalid, expired, or user not found — user remains null
       }
 
       return { pool, user };
