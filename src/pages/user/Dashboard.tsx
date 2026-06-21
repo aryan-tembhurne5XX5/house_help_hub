@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Calendar, Clock, User, Phone, Eye, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
+import { ActiveServiceCard } from "@/components/ActiveServiceCard";
 
 interface Booking {
   booking_id: number;
@@ -47,6 +48,7 @@ export default function UserDashboard() {
     },
     enabled: !!userId,
     refetchOnWindowFocus: true,
+    refetchInterval: 5000, // Real-time 5s polling for live sync
   });
 
   const handleCancel = async (bookingId: number) => {
@@ -63,12 +65,16 @@ export default function UserDashboard() {
     }
   };
 
+  const activeBookings = bookings?.filter(
+    booking => ["accepted", "travelling", "arrived", "waiting_for_schedule", "service_started", "completion_requested", "under_review"].includes(booking.status)
+  ) || [];
+
   const upcomingBookings = bookings?.filter(
-    booking => ["confirmed", "pending", "accepted", "travelling", "arrived", "in_progress"].includes(booking.status)
+    booking => ["confirmed", "pending"].includes(booking.status)
   ) || [];
   
   const pastBookings = bookings?.filter(
-    booking => booking.status === "completed" || booking.status === "rejected" || booking.status === "cancelled"
+    booking => ["completed", "rejected", "cancelled", "expired"].includes(booking.status)
   ) || [];
   
   return (
@@ -107,10 +113,10 @@ export default function UserDashboard() {
           
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Upcoming Services</CardTitle>
+              <CardTitle>Active Services</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{upcomingBookings.length}</p>
+              <p className="text-3xl font-bold">{activeBookings.length}</p>
             </CardContent>
           </Card>
           
@@ -124,12 +130,48 @@ export default function UserDashboard() {
           </Card>
         </div>
         
-        <Tabs defaultValue="upcoming" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="upcoming">Upcoming Services</TabsTrigger>
-            <TabsTrigger value="past">Past Services</TabsTrigger>
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="mb-6 grid w-full md:w-auto grid-cols-3">
+            <TabsTrigger value="active" className="relative">
+              Active
+              {activeBookings.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">History</TabsTrigger>
           </TabsList>
           
+          <TabsContent value="active" className="space-y-6">
+            {isLoading ? (
+              <Card>
+                <CardContent className="py-10">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+                    <p className="text-gray-500">Syncing live status...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : activeBookings.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-4">You have no active services at the moment.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {activeBookings.map(booking => (
+                  <ActiveServiceCard key={booking.booking_id} booking={booking} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="upcoming">
             {isLoading ? (
               <Card>
@@ -178,56 +220,31 @@ export default function UserDashboard() {
                     </CardHeader>
                     
                     <CardContent>
-                      {["confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(booking.status) ? (
+                      {["confirmed", "pending"].includes(booking.status) ? (
                         <div className="space-y-4">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h4 className="font-medium mb-2">Worker Information</h4>
-                            <div className="space-y-1">
-                              <p><span className="font-medium">Name:</span> {booking.worker_name}</p>
-                              <p><span className="font-medium">Phone:</span> {booking.worker_phone}</p>
-                            </div>
-                          </div>
+                          <p className="text-gray-600">
+                            Your booking is confirmed and waiting for worker assignment.
+                          </p>
                           
                           <div>
                             <p className="font-medium">Price: ₹{parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
                           <div className="flex flex-wrap gap-2">
-                            {booking.worker_phone && (
-                              <a href={`tel:${booking.worker_phone}`}>
-                                <Button variant="outline" size="sm">
-                                  <Phone className="h-3 w-3 mr-1" /> Contact
-                                </Button>
-                              </a>
-                            )}
-                            <Link to="/user/book">
-                              <Button variant="secondary" size="sm">
-                                Reschedule
-                              </Button>
-                            </Link>
                             <Link to={`/user/booking/${booking.booking_id}`}>
                               <Button variant="outline" size="sm">
                                 <Eye className="h-3 w-3 mr-1" /> Details
                               </Button>
                             </Link>
-                            {(booking.status === "accepted" || booking.status === "travelling" || booking.status === "arrived" || booking.status === "in_progress") && (
-                              <Link to={`/user/booking/${booking.booking_id}/track`}>
-                                <Button variant="outline" size="sm" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
-                                  Track Location
-                                </Button>
-                              </Link>
-                            )}
-                            {(booking.status === "pending" || booking.status === "confirmed" || booking.status === "accepted") && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                onClick={() => handleCancel(booking.booking_id)}
-                                disabled={isProcessing === booking.booking_id}
-                              >
-                                {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Cancel"}
-                              </Button>
-                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={() => handleCancel(booking.booking_id)}
+                              disabled={isProcessing === booking.booking_id}
+                            >
+                              {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Cancel"}
+                            </Button>
                           </div>
                         </div>
                       ) : (

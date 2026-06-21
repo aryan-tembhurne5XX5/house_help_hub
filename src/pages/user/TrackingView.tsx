@@ -187,56 +187,88 @@ export default function TrackingView() {
                   </div>
                 </div>
 
-                {/* Status-specific info panel */}
-                {booking.status === 'travelling' && travelEstimate && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h4 className="font-medium text-blue-900 flex items-center mb-2">
-                      <Navigation className="w-4 h-4 mr-2" /> Worker is on the way
-                    </h4>
-                    <div className="flex justify-between text-sm text-blue-800">
-                      <span>Distance: {travelEstimate.distanceKm.toFixed(1)} km</span>
-                      <span>ETA: {travelEstimate.durationMin.toFixed(0)} min</span>
+                {/* ─── TRAVEL SECTION ─── */}
+                {['accepted', 'travelling', 'arrived', 'waiting_for_schedule'].includes(booking.status) && (
+                  <div className="space-y-3 pt-2">
+                    <h4 className="font-semibold text-sm border-b pb-1">Travel Information</h4>
+                    
+                    {travelEstimate ? (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="bg-gray-50 p-2 rounded">
+                          <p className="text-xs text-muted-foreground">Current ETA</p>
+                          <p className="font-medium">{travelEstimate.durationMin.toFixed(0)} mins</p>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded">
+                          <p className="text-xs text-muted-foreground">Distance</p>
+                          <p className="font-medium">{travelEstimate.distanceKm.toFixed(1)} km</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic flex items-center"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Calculating ETA...</p>
+                    )}
+
+                    <div className="bg-gray-50 p-2 rounded text-sm flex justify-between items-center">
+                      <span className="text-muted-foreground">Location</span>
+                      <span className="font-medium flex items-center">
+                        <MapPin className="h-3 w-3 mr-1 text-primary" /> {booking.address ? 'Destination' : 'Unavailable'}
+                      </span>
                     </div>
+
+                    {booking.arrived_at && (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="bg-gray-50 p-2 rounded">
+                          <p className="text-xs text-muted-foreground">Arrived At</p>
+                          <p className="font-medium">{formatDateTime(booking.arrived_at).split(', ')[1]}</p>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded">
+                          <p className="text-xs text-muted-foreground">Arrival Delay</p>
+                          <p className="font-medium">{booking.arrival_delay_minutes ? (booking.arrival_delay_minutes > 0 ? `+${booking.arrival_delay_minutes}m late` : `${Math.abs(booking.arrival_delay_minutes)}m early`) : 'On Time'}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {(booking.status === 'arrived' || booking.status === 'waiting_for_schedule') && (
-                  <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
-                    <h4 className="font-medium text-cyan-900 flex items-center mb-1">
-                      <CheckCircle2 className="w-4 h-4 mr-2" /> Worker Has Arrived
-                    </h4>
-                    <p className="text-sm text-cyan-700">
-                      {booking.user_confirmed_arrival 
-                        ? 'Arrival confirmed! Waiting for service to start.' 
-                        : 'Please go to your booking to confirm their arrival.'}
-                    </p>
+                {/* ─── SERVICE SECTION ─── */}
+                {['waiting_for_schedule', 'service_started', 'completion_requested', 'under_review'].includes(booking.status) && (
+                  <div className="space-y-3 pt-4 border-t mt-4">
+                    <h4 className="font-semibold text-sm border-b pb-1">Service Information</h4>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="bg-gray-50 p-2 rounded">
+                        <p className="text-xs text-muted-foreground">Scheduled Start</p>
+                        <p className="font-medium">{booking.scheduled_start_datetime ? formatDateTime(booking.scheduled_start_datetime).split(', ')[1] : 'N/A'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <p className="text-xs text-muted-foreground">Duration</p>
+                        <p className="font-medium">{booking.duration_hours} hour(s)</p>
+                      </div>
+                    </div>
+
+                    {booking.status === 'service_started' && booking.service_started_at && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                          <div className="bg-orange-50 p-2 rounded border border-orange-100">
+                            <p className="text-xs text-orange-700">Elapsed Time</p>
+                            <p className="font-medium text-orange-900">{Math.floor(elapsedMinutes / 60)}h {elapsedMinutes % 60}m</p>
+                          </div>
+                          <div className="bg-orange-50 p-2 rounded border border-orange-100">
+                            <p className="text-xs text-orange-700">Remaining Time</p>
+                            <p className="font-medium text-orange-900">
+                              {Math.max(0, Math.floor((booking.duration_hours * 60 - elapsedMinutes) / 60))}h {Math.max(0, (booking.duration_hours * 60 - elapsedMinutes) % 60)}m
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                          <div 
+                            className="bg-orange-500 h-full rounded-full transition-all duration-1000"
+                            style={{ width: `${Math.min(100, (elapsedMinutes / (booking.duration_hours * 60)) * 100)}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
-
-                {booking.status === 'service_started' && booking.service_started_at && (
-                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                    <h4 className="font-medium text-orange-900 flex items-center mb-2">
-                      <Timer className="w-4 h-4 mr-2" /> Service In Progress
-                    </h4>
-                    <div className="flex justify-between text-sm text-orange-800">
-                      <span>Elapsed: {Math.floor(elapsedMinutes / 60)}h {elapsedMinutes % 60}m</span>
-                      <span>Booked: {booking.duration_hours}h</span>
-                    </div>
-                    <div className="mt-2 bg-orange-100 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-orange-500 h-full rounded-full transition-all"
-                        style={{ width: `${Math.min(100, (elapsedMinutes / (booking.duration_hours * 60)) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center text-sm">
-                    <div className="w-8 flex justify-center"><MapPin className="h-4 w-4 text-primary" /></div>
-                    <span>{booking.address}</span>
-                  </div>
-                </div>
 
                 {booking.worker_phone && (
                   <Button variant="outline" size="sm" asChild>

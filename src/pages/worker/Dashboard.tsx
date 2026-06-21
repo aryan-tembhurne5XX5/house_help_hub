@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Check, X, Calendar, Clock, User, Eye } from "lucide-react";
 import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
+import { ActiveServiceCard } from "@/components/ActiveServiceCard";
 
 interface ServiceRequest {
   booking_id: number;
@@ -33,6 +34,10 @@ interface ServiceRequest {
   total_price: number;
   duration_hours: number;
   notes?: string;
+  user_phone?: string;
+  worker_id?: number;
+  scheduled_start_datetime?: string;
+  scheduled_end_datetime?: string;
 }
 
 export default function WorkerDashboard() {
@@ -54,10 +59,12 @@ export default function WorkerDashboard() {
     },
     enabled: !!workerId,
     refetchOnWindowFocus: true,
+    refetchInterval: 5000,
   });
 
-  const activeRequests = requests?.filter(r => ["pending", "confirmed", "accepted", "travelling", "arrived", "waiting_for_schedule", "service_started", "completion_requested", "in_progress"].includes(r.status)) || [];
-  const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected" || r.status === "cancelled") || [];
+  const activeRequests = requests?.filter(r => ["accepted", "travelling", "arrived", "waiting_for_schedule", "service_started", "completion_requested", "under_review"].includes(r.status)) || [];
+  const upcomingRequests = requests?.filter(r => ["pending", "confirmed"].includes(r.status)) || [];
+  const pastRequests = requests?.filter(r => ["completed", "rejected", "cancelled", "expired"].includes(r.status)) || [];
 
   const handleAccept = async (requestId: number) => {
     setProcessingBookingId(requestId);
@@ -147,10 +154,10 @@ export default function WorkerDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Pending Requests</CardTitle>
+              <CardTitle>Active Services</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{activeRequests.filter(r => r.status === "pending").length}</p>
+              <p className="text-3xl font-bold">{activeRequests.length}</p>
             </CardContent>
           </Card>
 
@@ -209,16 +216,52 @@ export default function WorkerDashboard() {
         </div>
 
         <Tabs defaultValue="active" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="active">Active Requests</TabsTrigger>
-            <TabsTrigger value="past">Past Requests</TabsTrigger>
+          <TabsList className="mb-4 grid w-full md:w-auto grid-cols-3">
+            <TabsTrigger value="active" className="relative">
+              Active
+              {activeRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="active">
+          <TabsContent value="active" className="space-y-6">
+            {isLoading ? (
+              <Card>
+                <CardContent className="py-10">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+                    <p className="text-gray-500">Syncing live status...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : activeRequests.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-4">You have no active services at the moment.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {activeRequests.map(request => (
+                  <ActiveServiceCard key={request.booking_id} booking={request as any} isWorker={true} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="upcoming">
             <Card>
               <CardHeader>
-                <CardTitle>Active Service Requests</CardTitle>
-                <CardDescription>Review and respond to pending service requests</CardDescription>
+                <CardTitle>Upcoming & Pending Requests</CardTitle>
+                <CardDescription>Review and respond to new service requests</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -226,9 +269,9 @@ export default function WorkerDashboard() {
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                     <p>Loading service requests...</p>
                   </div>
-                ) : activeRequests.length === 0 ? (
+                ) : upcomingRequests.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No active requests at the moment.</p>
+                    <p className="text-gray-500">No upcoming requests at the moment.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -245,7 +288,7 @@ export default function WorkerDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {activeRequests.map((request) => (
+                        {upcomingRequests.map((request) => (
                           <TableRow key={request.booking_id}>
                             <TableCell className="font-medium">
                               <div className="flex items-center">

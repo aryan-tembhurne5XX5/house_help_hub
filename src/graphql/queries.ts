@@ -34,6 +34,14 @@ export const GET_USER_BOOKINGS = gql`
       worker_name
       worker_phone
       worker_profile_pic
+      scheduled_start_datetime
+      scheduled_end_datetime
+      arrival_delay_minutes
+      service_start_delay_minutes
+      early_arrival_minutes
+      travel_duration_minutes
+      service_duration_minutes
+      worker_id
     }
   }
 `;
@@ -90,6 +98,9 @@ export const GET_WORKER_REQUESTS = gql`
       status
       created_at
       ticket_number
+      user_phone
+      scheduled_start_datetime
+      scheduled_end_datetime
       arrival_delay_minutes
       service_start_delay_minutes
       service_duration_minutes
