@@ -24,8 +24,9 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getServices, getAvailableWorkers, createBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, User, Clock, Calendar } from "lucide-react";
+import { Loader2, User, Clock, Calendar, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MapPicker } from "@/components/MapPicker";
 
 const getDateLimits = () => {
   const today = new Date();
@@ -82,6 +83,8 @@ export default function BookService() {
     date: "",
     time: "",
     location: "",
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
     duration: 1,
     notes: ""
   });
@@ -130,7 +133,10 @@ export default function BookService() {
       const response = await getAvailableWorkers({
         serviceId: selectedService,
         date: bookingDetails.date,
-        time: bookingDetails.time
+        time: bookingDetails.time,
+        latitude: bookingDetails.latitude,
+        longitude: bookingDetails.longitude,
+        radiusKm: 20 // Default search radius
       });
       
       const workers = response.data as Worker[];
@@ -176,6 +182,9 @@ export default function BookService() {
         bookingTime: bookingDetails.time,
         durationHours: bookingDetails.duration,
         address: bookingDetails.location,
+        latitude: bookingDetails.latitude,
+        longitude: bookingDetails.longitude,
+        locationText: bookingDetails.location,
         notes: bookingDetails.notes || ""
       });
       
@@ -187,6 +196,9 @@ export default function BookService() {
         bookingTime: bookingDetails.time,
         durationHours: bookingDetails.duration,
         address: bookingDetails.location,
+        latitude: bookingDetails.latitude,
+        longitude: bookingDetails.longitude,
+        locationText: bookingDetails.location,
         notes: bookingDetails.notes || ""
       });
       
@@ -347,14 +359,16 @@ export default function BookService() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      name="location"
-                      placeholder="Enter your address"
-                      value={bookingDetails.location}
-                      onChange={handleInputChange}
-                      required
+                    <Label>Service Location</Label>
+                    <MapPicker
+                      onLocationSelect={(loc) => {
+                        setBookingDetails(prev => ({
+                          ...prev,
+                          location: loc.address || "Selected on map",
+                          latitude: loc.latitude,
+                          longitude: loc.longitude
+                        }));
+                      }}
                     />
                   </div>
                   
@@ -388,6 +402,12 @@ export default function BookService() {
                               <div>
                                 <p className="font-medium">{worker.name}</p>
                                 <p className="text-sm text-muted-foreground">₹{worker.price_per_hour}/hour</p>
+                                {(worker as any).distanceKm != null && (
+                                  <div className="flex items-center text-sm text-muted-foreground mt-1">
+                                    <MapPin className="h-3 w-3 mr-1" />
+                                    {(worker as any).distanceKm.toFixed(1)} km away
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>

@@ -2,19 +2,49 @@ import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getBookingDetails, acceptBooking, rejectBooking, completeBooking } from "@/utils/api";
+import { getBookingDetails, acceptBooking, rejectBooking, completeBooking, startTravel, markArrived, updateLocation, getTravelEstimate } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Calendar, Clock, MapPin, User, FileText, Check, X, Phone } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, Clock, MapPin, User, FileText, Check, X, Phone, Navigation } from "lucide-react";
 import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
 import { toast } from "sonner";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Fix leaflet icon issue
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const homeIcon = new L.DivIcon({
+  html: `<div style="background-color: #ef4444; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>`,
+  className: '',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32]
+});
+
+const workerIcon = new L.DivIcon({
+  html: `<div style="background-color: #2563eb; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>`,
+  className: '',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
+});
 
 export default function WorkerBookingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const bookingId = parseInt(id || "0");
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [workerLocation, setWorkerLocation] = useState<{ lat: number, lng: number } | null>(null);
 
   const { data: booking, isLoading, isError, refetch } = useQuery({
     queryKey: ['bookingDetails', bookingId],
@@ -26,7 +56,17 @@ export default function WorkerBookingDetail() {
     refetchOnWindowFocus: true,
   });
 
-  const handleAction = async (action: 'accept' | 'reject' | 'complete') => {
+  const { data: travelEstimateData } = useQuery({
+    queryKey: ['travelEstimate', booking?.worker_id, booking?.booking_id],
+    queryFn: async () => {
+      const response = await getTravelEstimate(booking.worker_id, booking.booking_id);
+      return response.data;
+    },
+    enabled: !!booking && ['accepted', 'travelling', 'arrived', 'in_progress'].includes(booking.status),
+    refetchInterval: booking?.status === 'travelling' ? 15000 : false,
+  });
+
+  const handleAction = async (action: 'accept' | 'reject' | 'startTravel' | 'markArrived' | 'complete') => {
     setProcessingAction(action);
     try {
       if (action === 'accept') {
@@ -39,6 +79,12 @@ export default function WorkerBookingDetail() {
         }
         await rejectBooking(bookingId);
         toast.info("Booking declined.");
+      } else if (action === 'startTravel') {
+        await startTravel(bookingId);
+        toast.success("Started travel to customer!");
+      } else if (action === 'markArrived') {
+        await markArrived(bookingId);
+        toast.success("Marked as arrived!");
       } else if (action === 'complete') {
         await completeBooking(bookingId);
         toast.success("Job marked as completed!");
@@ -51,6 +97,38 @@ export default function WorkerBookingDetail() {
       setProcessingAction(null);
     }
   };
+
+  // Periodically update worker location when travelling
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (booking?.status === 'travelling') {
+      const sendLocation = () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(async (pos) => {
+            try {
+              setWorkerLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+              await updateLocation(pos.coords.latitude, pos.coords.longitude);
+            } catch (err) {
+              console.error("Failed to update location", err);
+            }
+          }, (err) => {
+            console.error("Geolocation error:", err);
+          }, { enableHighAccuracy: true });
+        }
+      };
+
+      // Send immediately when status changes to travelling
+      sendLocation();
+      
+      // Then send every 15 seconds
+      interval = setInterval(sendLocation, 15000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [booking?.status]);
 
   if (isLoading) {
     return (
@@ -129,6 +207,26 @@ export default function WorkerBookingDetail() {
             )}
             {(booking.status === 'confirmed' || booking.status === 'accepted') && (
               <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => handleAction('startTravel')}
+                disabled={!!processingAction}
+              >
+                {processingAction === 'startTravel' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Navigation className="h-4 w-4 mr-2" />}
+                Start Travel
+              </Button>
+            )}
+            {booking.status === 'travelling' && (
+              <Button 
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                onClick={() => handleAction('markArrived')}
+                disabled={!!processingAction}
+              >
+                {processingAction === 'markArrived' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MapPin className="h-4 w-4 mr-2" />}
+                Mark Arrived
+              </Button>
+            )}
+            {(booking.status === 'arrived' || booking.status === 'in_progress') && (
+              <Button 
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => handleAction('complete')}
                 disabled={!!processingAction}
@@ -172,9 +270,48 @@ export default function WorkerBookingDetail() {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-sm text-muted-foreground flex items-center gap-1 mb-1">
-                      <MapPin className="h-4 w-4" /> Location
+                      <MapPin className="h-4 w-4" /> Location Area
                     </p>
-                    <p className="font-medium bg-muted p-3 rounded-md mt-1">{booking.address}</p>
+                    <p className="font-medium bg-muted p-3 rounded-md mt-1">{booking.booking_location_text || booking.address.split(',').slice(-2).join(',')}</p>
+                    {['accepted', 'travelling', 'arrived', 'in_progress'].includes(booking.status) && booking.booking_latitude && booking.booking_longitude && (
+                      <div className="mt-4">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mb-2">
+                          Exact Customer Location
+                        </p>
+                        <div className="h-[200px] rounded-md overflow-hidden border">
+                          <MapContainer
+                            center={[booking.booking_latitude, booking.booking_longitude]}
+                            zoom={15}
+                            style={{ height: '100%', width: '100%' }}
+                            zoomControl={false}
+                          >
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          <Marker position={[booking.booking_latitude, booking.booking_longitude]} icon={homeIcon}>
+                            <Popup>Customer Location</Popup>
+                          </Marker>
+                          {workerLocation && (
+                            <Marker position={[workerLocation.lat, workerLocation.lng]} icon={workerIcon}>
+                              <Popup>Your Location</Popup>
+                            </Marker>
+                          )}
+                          {travelEstimateData?.routeCoordinates && (
+                            <Polyline positions={travelEstimateData.routeCoordinates} color="#2563eb" weight={5} opacity={0.8} />
+                          )}
+                        </MapContainer>
+                        </div>
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${booking.booking_latitude},${booking.booking_longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-block"
+                        >
+                          <Button variant="outline" size="sm" className="w-full">
+                            <Navigation className="h-4 w-4 mr-2" />
+                            Open in Maps
+                          </Button>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
 

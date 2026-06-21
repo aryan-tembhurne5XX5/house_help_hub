@@ -56,7 +56,7 @@ export default function WorkerDashboard() {
     refetchOnWindowFocus: true,
   });
 
-  const activeRequests = requests?.filter(r => r.status === "pending" || r.status === "confirmed" || r.status === "accepted") || [];
+  const activeRequests = requests?.filter(r => ["pending", "confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(r.status)) || [];
   const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected" || r.status === "cancelled") || [];
 
   const handleAccept = async (requestId: number) => {
@@ -261,7 +261,7 @@ export default function WorkerDashboard() {
                                     </Button>
                                   </>
                                 )}
-                                {request.status === "confirmed" && (
+                                {["confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(request.status) && (
                                   <Button
                                     size="sm"
                                     variant="default"

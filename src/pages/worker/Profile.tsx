@@ -12,8 +12,9 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, Briefcase } from "lucide-react";
+import { Loader2, Save, Briefcase, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { LocationPicker } from "@/components/LocationPicker";
 
 export default function WorkerProfile() {
   const navigate = useNavigate();
@@ -46,6 +47,10 @@ export default function WorkerProfile() {
     phone: '',
     address: '',
     bio: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    location_text: '',
+    service_radius_km: 10,
   });
   
   useEffect(() => {
@@ -56,6 +61,10 @@ export default function WorkerProfile() {
         phone: profile.phone || '',
         address: profile.address || '',
         bio: profile.bio || '',
+        latitude: profile.latitude,
+        longitude: profile.longitude,
+        location_text: profile.location_text || '',
+        service_radius_km: profile.service_radius_km || 10,
       });
     }
   }, [profile]);
@@ -193,17 +202,42 @@ export default function WorkerProfile() {
                   />
                 </div>
                 
+                {isEditing ? (
+                  <LocationPicker
+                    defaultAddress={formData.address}
+                    defaultLocationText={formData.location_text}
+                    onLocationSelect={(loc) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        address: loc.address || '',
+                        location_text: loc.location_text || '',
+                        latitude: loc.latitude,
+                        longitude: loc.longitude,
+                      }));
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-md text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{formData.location_text || formData.address || 'No location set'}</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
+                  <Label htmlFor="service_radius_km">Service Radius (km)</Label>
+                  <Input
+                    id="service_radius_km"
+                    name="service_radius_km"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={formData.service_radius_km}
+                    onChange={(e) => setFormData(prev => ({ ...prev, service_radius_km: parseInt(e.target.value) || 10 }))}
                     readOnly={!isEditing}
                     disabled={!isEditing || isSaving}
-                    placeholder={isEditing ? "Enter your address" : "No address added"}
-                    rows={2}
                   />
                 </div>
                 

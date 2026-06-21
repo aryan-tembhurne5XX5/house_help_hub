@@ -191,6 +191,11 @@ export default function BookingDetail() {
                       )}
                     </div>
                   </div>
+                  {(booking.status === 'confirmed' || booking.status === 'accepted') && (
+                    <Button onClick={() => navigate(`/user/booking/${booking.booking_id}/track`)} className="mt-6 w-full" variant="outline">
+                      <MapPin className="h-4 w-4 mr-2" /> Track Live Location
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}

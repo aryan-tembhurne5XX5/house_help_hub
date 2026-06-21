@@ -3,6 +3,7 @@ import { GraphQLError } from 'graphql';
 import { differenceInHours } from 'date-fns';
 import { z } from 'zod';
 import xss from 'xss';
+import axios from 'axios';
 import { requireAuth, requireUser, requireWorker, requireRole } from '../../middleware/permissions.js';
 
 // Helper to generate unique ticket number
@@ -21,6 +22,9 @@ const createBookingSchema = z.object({
   bookingTime: z.string().min(1, "Booking time is required"),
   durationHours: z.number().positive("Duration must be positive"),
   address: z.string().min(1, "Address is required"),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  locationText: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -60,6 +64,111 @@ const bookingResolvers = {
       }
 
       throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+    },
+
+    // ─── Travel Estimate ────────────────────────────────────────────────────
+    travelEstimate: async (_, { workerId, bookingId }, context) => {
+      requireAuth(context);
+      
+      const [workerLocationRows] = await context.pool.query(
+        'SELECT latitude, longitude FROM worker_locations WHERE worker_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [workerId]
+      );
+      
+      let wLoc = workerLocationRows.length > 0 ? workerLocationRows[0] : null;
+
+      // Fallback to worker's base profile location if no live tracking data exists
+      if (!wLoc || !wLoc.latitude) {
+        const [workerProfileRows] = await context.pool.query(
+          'SELECT latitude, longitude FROM workers WHERE worker_id = ?',
+          [workerId]
+        );
+        if (workerProfileRows.length > 0 && workerProfileRows[0].latitude) {
+          wLoc = workerProfileRows[0];
+        }
+      }
+      
+      const [bookingRows] = await context.pool.query(
+        'SELECT booking_latitude as latitude, booking_longitude as longitude FROM bookings WHERE booking_id = ?',
+        [bookingId]
+      );
+      
+      if (!wLoc || bookingRows.length === 0 || !wLoc.latitude || !bookingRows[0].latitude) {
+        return null;
+      }
+      
+      const bLoc = bookingRows[0];
+      
+      let distanceKm = 0;
+      let durationMin = 0;
+      let routeCoordinates = null;
+
+      const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+
+      if (apiKey) {
+        try {
+          const response = await axios.get('https://api.openrouteservice.org/v2/directions/driving-car', {
+            params: {
+              api_key: apiKey,
+              start: `${wLoc.longitude},${wLoc.latitude}`,
+              end: `${bLoc.longitude},${bLoc.latitude}`
+            }
+          });
+
+          if (response.data && response.data.features && response.data.features.length > 0) {
+            const summary = response.data.features[0].properties.summary;
+            distanceKm = summary.distance / 1000; // distance is in meters
+            durationMin = summary.duration / 60; // duration is in seconds
+            
+            // OpenRouteService returns geometry as [longitude, latitude]
+            // We need to flip it to [latitude, longitude] for react-leaflet Polyline
+            const coords = response.data.features[0].geometry.coordinates;
+            if (coords && Array.isArray(coords)) {
+              routeCoordinates = coords.map(coord => [coord[1], coord[0]]);
+            }
+          }
+        } catch (error) {
+          console.error("OpenRouteService API error:", error.message);
+          // Fall back to Haversine if API fails
+        }
+      }
+
+      // Fallback: Calculate Haversine distance
+      if (distanceKm === 0) {
+        const toRad = (value) => (value * Math.PI) / 180;
+        const R = 6371; // km
+        const dLat = toRad(bLoc.latitude - wLoc.latitude);
+        const dLon = toRad(bLoc.longitude - wLoc.longitude);
+        const lat1 = toRad(wLoc.latitude);
+        const lat2 = toRad(bLoc.latitude);
+
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        distanceKm = R * c;
+        
+        // Add 20% to account for road routing overhead compared to straight line
+        distanceKm = distanceKm * 1.2;
+        
+        // Mock OpenRouteService duration: Assuming average city speed of 30 km/h = 2 min/km
+        durationMin = distanceKm * 2;
+        
+        // Fallback straight line route
+        routeCoordinates = [
+          [wLoc.latitude, wLoc.longitude],
+          [bLoc.latitude, bLoc.longitude]
+        ];
+      }
+      
+      const etaTimestamp = new Date(Date.now() + durationMin * 60000).toISOString();
+      
+      return {
+        distanceKm,
+        durationMin,
+        etaTimestamp,
+        routeCoordinates
+      };
     },
 
     // ─── Booking Timeline ───────────────────────────────────────────────────
@@ -102,13 +211,43 @@ const bookingResolvers = {
         status: 'pending'
       });
 
-      if (['confirmed', 'completed'].includes(booking.status)) {
+      if (['confirmed', 'accepted', 'travelling', 'arrived', 'in_progress', 'completed'].includes(booking.status)) {
         events.push({
           id: 'evt_2',
           title: 'Booking Accepted',
-          description: `Worker ${booking.worker_name} accepted the request.`,
+          description: `Worker ${booking.worker_name} accepted the booking.`,
+          timestamp: booking.created_at, // Ideally we'd have status timestamps, but using created_at for mock
+          status: 'accepted'
+        });
+      }
+
+      if (['travelling', 'arrived', 'in_progress', 'completed'].includes(booking.status)) {
+        events.push({
+          id: 'evt_travel',
+          title: 'Worker is Travelling',
+          description: `Worker ${booking.worker_name} has started travelling to your location.`,
           timestamp: booking.created_at,
-          status: 'confirmed'
+          status: 'travelling'
+        });
+      }
+
+      if (['arrived', 'in_progress', 'completed'].includes(booking.status)) {
+        events.push({
+          id: 'evt_arrive',
+          title: 'Worker Arrived',
+          description: `Worker ${booking.worker_name} has arrived at your location.`,
+          timestamp: booking.created_at,
+          status: 'arrived'
+        });
+      }
+
+      if (['in_progress', 'completed'].includes(booking.status)) {
+        events.push({
+          id: 'evt_start',
+          title: 'Service Started',
+          description: `The service has officially started.`,
+          timestamp: booking.created_at,
+          status: 'in_progress'
         });
       }
 
@@ -117,7 +256,7 @@ const bookingResolvers = {
           id: 'evt_3',
           title: 'Service Completed',
           description: `The service was completed successfully.`,
-          timestamp: new Date().toISOString(),
+          timestamp: booking.created_at,
           status: 'completed'
         });
       }
@@ -160,7 +299,7 @@ const bookingResolvers = {
         throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
       }
 
-      const { userId, serviceId, workerId, bookingDate, bookingTime, durationHours, address, notes } = parseResult.data;
+      const { userId, serviceId, workerId, bookingDate, bookingTime, durationHours, address, latitude, longitude, locationText, notes } = parseResult.data;
 
       // Ensure user can only create bookings for themselves
       if (context.user.id !== userId) {
@@ -170,6 +309,7 @@ const bookingResolvers = {
       // Sanitize user inputs
       const sanitizedAddress = xss(address);
       const sanitizedNotes = notes ? xss(notes) : null;
+      const sanitizedLocationText = locationText ? xss(locationText) : null;
 
       await context.pool.query('START TRANSACTION');
 
@@ -195,7 +335,7 @@ const bookingResolvers = {
            WHERE worker_id = ?
            AND booking_date = ?
            AND booking_time = ?
-           AND status IN ('confirmed', 'completed') FOR UPDATE`,
+           AND status IN ('confirmed', 'completed', 'accepted') FOR UPDATE`,
           [workerId, bookingDate, bookingTime]
         );
 
@@ -206,9 +346,9 @@ const bookingResolvers = {
 
         // Insert new booking
         const [result] = await context.pool.query(
-          `INSERT INTO bookings (user_id, worker_id, service_id, booking_date, booking_time, duration_hours, address, total_price, notes, ticket_number)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [userId, workerId, serviceId, bookingDate, bookingTime, durationHours, sanitizedAddress, totalPrice, sanitizedNotes, ticketNumber]
+          `INSERT INTO bookings (user_id, worker_id, service_id, booking_date, booking_time, duration_hours, address, booking_latitude, booking_longitude, booking_location_text, total_price, notes, ticket_number)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, workerId, serviceId, bookingDate, bookingTime, durationHours, sanitizedAddress, latitude, longitude, sanitizedLocationText, totalPrice, sanitizedNotes, ticketNumber]
         );
 
         // Create notification for worker
@@ -256,7 +396,7 @@ const bookingResolvers = {
         }
 
         const [result] = await context.pool.query(
-          'UPDATE bookings SET status = "confirmed" WHERE booking_id = ? AND status = "pending"',
+          'UPDATE bookings SET status = "accepted" WHERE booking_id = ? AND status = "pending"',
           [bookingId]
         );
 
@@ -301,6 +441,56 @@ const bookingResolvers = {
         await context.pool.query('ROLLBACK');
         throw error;
       }
+    },
+
+    // ─── Start Travel ────────────────────────────────────────────────────────
+    startTravel: async (_, { bookingId }, context) => {
+      requireWorker(context);
+
+      const [result] = await context.pool.query(
+        'UPDATE bookings SET status = "travelling" WHERE booking_id = ? AND worker_id = ? AND status IN ("accepted", "confirmed")',
+        [bookingId, context.user.id]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new GraphQLError('Failed to start travel', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+
+      // Notify User
+      const [bookingRows] = await context.pool.query('SELECT user_id, ticket_number FROM bookings WHERE booking_id = ?', [bookingId]);
+      if (bookingRows.length > 0) {
+        await context.pool.query(
+          `INSERT INTO notifications (user_id, worker_id, title, message, type) VALUES (?, NULL, 'Worker on the way', ?, 'booking_status')`,
+          [bookingRows[0].user_id, `Your worker has started travelling for booking ${bookingRows[0].ticket_number}`]
+        );
+      }
+
+      return { message: 'Travel started successfully' };
+    },
+
+    // ─── Mark Arrived ────────────────────────────────────────────────────────
+    markArrived: async (_, { bookingId }, context) => {
+      requireWorker(context);
+
+      const [result] = await context.pool.query(
+        'UPDATE bookings SET status = "arrived" WHERE booking_id = ? AND worker_id = ? AND status = "travelling"',
+        [bookingId, context.user.id]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new GraphQLError('Failed to mark arrived', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+
+      // Notify User
+      const [bookingRows] = await context.pool.query('SELECT user_id, ticket_number FROM bookings WHERE booking_id = ?', [bookingId]);
+      if (bookingRows.length > 0) {
+        await context.pool.query(
+          `INSERT INTO notifications (user_id, worker_id, title, message, type) VALUES (?, NULL, 'Worker Arrived', ?, 'booking_status')`,
+          [bookingRows[0].user_id, `Your worker has arrived for booking ${bookingRows[0].ticket_number}`]
+        );
+      }
+
+      return { message: 'Marked as arrived successfully' };
     },
 
     // ─── Reject Booking ─────────────────────────────────────────────────────
@@ -378,7 +568,7 @@ const bookingResolvers = {
           throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
         }
 
-        if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+        if (booking.status !== 'pending' && booking.status !== 'confirmed' && booking.status !== 'accepted') {
           await context.pool.query('ROLLBACK');
           throw new GraphQLError(`Cannot cancel a booking that is already ${booking.status}`, { extensions: { code: 'BAD_USER_INPUT' } });
         }
@@ -388,7 +578,7 @@ const bookingResolvers = {
         const now = new Date();
         const hoursDifference = differenceInHours(bookingDateTime, now);
 
-        if (booking.status === 'confirmed' && hoursDifference < 12) {
+        if (['confirmed', 'accepted'].includes(booking.status) && hoursDifference < 12) {
           await context.pool.query('ROLLBACK');
           throw new GraphQLError('Cannot cancel confirmed bookings within 12 hours of the scheduled time', { extensions: { code: 'BAD_USER_INPUT' } });
         }
@@ -426,13 +616,13 @@ const bookingResolvers = {
 
       try {
         const [bookingRows] = await context.pool.query(
-          'SELECT user_id, worker_id, ticket_number FROM bookings WHERE booking_id = ? AND status = "confirmed" FOR UPDATE',
+          'SELECT user_id, worker_id, ticket_number FROM bookings WHERE booking_id = ? AND status IN ("accepted", "confirmed", "arrived", "in_progress") FOR UPDATE',
           [bookingId]
         );
 
         if (bookingRows.length === 0) {
           await context.pool.query('ROLLBACK');
-          throw new GraphQLError('Booking not found or not in confirmed state', { extensions: { code: 'BAD_USER_INPUT' } });
+          throw new GraphQLError('Booking not found or not in a completable state', { extensions: { code: 'BAD_USER_INPUT' } });
         }
 
         const booking = bookingRows[0];

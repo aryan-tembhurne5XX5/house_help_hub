@@ -11,8 +11,9 @@ import { getUserProfile, updateUserProfile } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { LocationPicker } from "@/components/LocationPicker";
 
 export default function UserProfile() {
   const navigate = useNavigate();
@@ -44,6 +45,9 @@ export default function UserProfile() {
     email: '',
     phone: '',
     address: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    location_text: '',
   });
   
   useEffect(() => {
@@ -53,6 +57,9 @@ export default function UserProfile() {
         email: profile.email || '',
         phone: profile.phone || '',
         address: profile.address || '',
+        latitude: profile.latitude,
+        longitude: profile.longitude,
+        location_text: profile.location_text || '',
       });
     }
   }, [profile]);
@@ -191,19 +198,29 @@ export default function UserProfile() {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    readOnly={!isEditing}
-                    disabled={!isEditing || isSaving}
-                    placeholder={isEditing ? "Enter your address" : "No address added"}
-                    rows={3}
+                {isEditing ? (
+                  <LocationPicker
+                    defaultAddress={formData.address}
+                    defaultLocationText={formData.location_text}
+                    onLocationSelect={(loc) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        address: loc.address || '',
+                        location_text: loc.location_text || '',
+                        latitude: loc.latitude,
+                        longitude: loc.longitude,
+                      }));
+                    }}
                   />
-                </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-md text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{formData.location_text || formData.address || 'No location set'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
             

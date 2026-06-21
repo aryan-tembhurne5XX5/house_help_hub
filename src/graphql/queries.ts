@@ -108,6 +108,8 @@ export const GET_BOOKING_DETAILS = gql`
       booking_time
       duration_hours
       address
+      booking_latitude
+      booking_longitude
       notes
       total_price
       status
@@ -138,14 +140,29 @@ export const GET_SERVICES = gql`
 `;
 
 export const GET_AVAILABLE_WORKERS = gql`
-  query GetAvailableWorkers($serviceId: Int!, $date: String!, $time: String!) {
-    availableWorkers(serviceId: $serviceId, date: $date, time: $time) {
+  query GetAvailableWorkers($serviceId: Int!, $date: String!, $time: String!, $latitude: Float, $longitude: Float, $radiusKm: Int) {
+    availableWorkers(serviceId: $serviceId, date: $date, time: $time, latitude: $latitude, longitude: $longitude, radiusKm: $radiusKm) {
       worker_id
       name
       phone
       profile_pic
       avg_rating
       price_per_hour
+      distanceKm
+    }
+  }
+`;
+
+export const GET_NEARBY_WORKERS = gql`
+  query GetNearbyWorkers($latitude: Float!, $longitude: Float!, $radiusKm: Int, $serviceId: Int) {
+    nearbyWorkers(latitude: $latitude, longitude: $longitude, radiusKm: $radiusKm, serviceId: $serviceId) {
+      worker_id
+      name
+      phone
+      profile_pic
+      avg_rating
+      price_per_hour
+      distanceKm
     }
   }
 `;
@@ -302,6 +319,38 @@ export const GET_REVENUE_ANALYTICS = gql`
       date
       revenue
       bookings
+    }
+  }
+`;
+
+export const TRAVEL_ESTIMATE = gql`
+  query TravelEstimate($workerId: Int!, $bookingId: Int!) {
+    travelEstimate(workerId: $workerId, bookingId: $bookingId) {
+      distanceKm
+      durationMin
+      etaTimestamp
+      routeCoordinates
+    }
+  }
+`;
+
+export const LOCATION_ANALYTICS = gql`
+  query LocationAnalytics($area: String) {
+    locationAnalytics(area: $area) {
+      area
+      totalBookings
+      totalWorkers
+      revenue
+    }
+  }
+`;
+
+export const WORKER_COVERAGE = gql`
+  query WorkerCoverage($workerId: Int!) {
+    workerCoverage(workerId: $workerId) {
+      worker_id
+      radiusKm
+      coveredAreas
     }
   }
 `;

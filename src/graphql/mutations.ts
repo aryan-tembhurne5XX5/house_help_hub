@@ -285,3 +285,35 @@ export const CREATE_SUPPORT_TICKET = gql`
     }
   }
 `;
+
+export const START_TRAVEL = gql`
+  mutation StartTravel($bookingId: Int!) {
+    startTravel(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const MARK_ARRIVED = gql`
+  mutation MarkArrived($bookingId: Int!) {
+    markArrived(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const UPDATE_WORKER_RADIUS = gql`
+  mutation UpdateWorkerRadius($radiusKm: Int!) {
+    updateWorkerRadius(radiusKm: $radiusKm) {
+      message
+    }
+  }
+`;
+
+export const UPDATE_LOCATION = gql`
+  mutation UpdateLocation($latitude: Float!, $longitude: Float!, $locationText: String) {
+    updateLocation(latitude: $latitude, longitude: $longitude, locationText: $locationText) {
+      message
+    }
+  }
+`;

@@ -12,7 +12,7 @@ const userResolvers = {
       }
 
       const [rows] = await context.pool.query(
-        'SELECT user_id, name, email, phone, address, profile_pic, created_at FROM users WHERE user_id = ?',
+        'SELECT user_id, name, email, phone, address, profile_pic, latitude, longitude, location_text, created_at FROM users WHERE user_id = ?',
         [userId]
       );
 
@@ -52,11 +52,11 @@ const userResolvers = {
         throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
       }
 
-      const { name, phone, address } = input;
+      const { name, phone, address, latitude, longitude, location_text } = input;
 
       const [result] = await context.pool.query(
-        'UPDATE users SET name = ?, phone = ?, address = ? WHERE user_id = ?',
-        [name, phone || null, address || null, userId]
+        'UPDATE users SET name = ?, phone = ?, address = ?, latitude = ?, longitude = ?, location_text = ? WHERE user_id = ?',
+        [name, phone || null, address || null, latitude || null, longitude || null, location_text || null, userId]
       );
 
       if (result.affectedRows === 0) {
@@ -64,7 +64,7 @@ const userResolvers = {
       }
 
       const [updatedUser] = await context.pool.query(
-        'SELECT user_id, name, email, phone, address, profile_pic, created_at FROM users WHERE user_id = ?',
+        'SELECT user_id, name, email, phone, address, profile_pic, latitude, longitude, location_text, created_at FROM users WHERE user_id = ?',
         [userId]
       );
 

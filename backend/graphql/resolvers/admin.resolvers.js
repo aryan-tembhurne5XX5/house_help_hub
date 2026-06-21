@@ -111,6 +111,54 @@ const adminResolvers = {
         bookings: r.bookings || 0
       }));
     },
+
+    // ─── Location Analytics ─────────────────────────────────────────────────
+    locationAnalytics: async (_, { area }, context) => {
+      requireAdmin(context);
+      // Mock logic: Group bookings and workers by location_text
+      let bookingQuery = 'SELECT booking_location_text as area, COUNT(booking_id) as totalBookings, SUM(total_price) as revenue FROM bookings WHERE booking_location_text IS NOT NULL';
+      let workerQuery = 'SELECT location_text as area, COUNT(worker_id) as totalWorkers FROM workers WHERE location_text IS NOT NULL';
+      
+      const params = [];
+      if (area) {
+        bookingQuery += ' AND booking_location_text LIKE ?';
+        workerQuery += ' AND location_text LIKE ?';
+        params.push(`%${area}%`);
+      }
+      
+      bookingQuery += ' GROUP BY booking_location_text';
+      workerQuery += ' GROUP BY location_text';
+
+      const [bookingRows] = await context.pool.query(bookingQuery, params);
+      const [workerRows] = await context.pool.query(workerQuery, params);
+
+      // Merge data
+      const analyticsMap = new Map();
+      
+      bookingRows.forEach(r => {
+        analyticsMap.set(r.area, {
+          area: r.area,
+          totalBookings: r.totalBookings,
+          revenue: r.revenue || 0,
+          totalWorkers: 0
+        });
+      });
+      
+      workerRows.forEach(r => {
+        if (analyticsMap.has(r.area)) {
+          analyticsMap.get(r.area).totalWorkers = r.totalWorkers;
+        } else {
+          analyticsMap.set(r.area, {
+            area: r.area,
+            totalBookings: 0,
+            revenue: 0,
+            totalWorkers: r.totalWorkers
+          });
+        }
+      });
+      
+      return Array.from(analyticsMap.values());
+    },
   },
 
   Mutation: {

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { LocationPicker } from "@/components/LocationPicker";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +36,9 @@ const registerUserSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  location_text: z.string().optional(),
 });
 
 const registerWorkerSchema = z.object({
@@ -42,6 +46,9 @@ const registerWorkerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().min(10, "Phone number is required and must be at least 10 digits"),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  location_text: z.string().optional(),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -155,7 +162,10 @@ export default function Auth() {
         name: data.name,
         email: data.email,
         password: data.password,
-        phone: data.phone
+        phone: data.phone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        location_text: data.location_text
       });
       const userData = response.data;
       
@@ -185,7 +195,10 @@ export default function Auth() {
         name: data.name,
         email: data.email,
         password: data.password,
-        phone: data.phone
+        phone: data.phone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        location_text: data.location_text
       });
       const workerData = response.data;
       
@@ -379,6 +392,13 @@ export default function Auth() {
                           {...registerUserForm.register("phone")}
                         />
                       </div>
+                      <LocationPicker
+                        onLocationSelect={(loc) => {
+                          registerUserForm.setValue('latitude', loc.latitude);
+                          registerUserForm.setValue('longitude', loc.longitude);
+                          registerUserForm.setValue('location_text', loc.location_text || undefined);
+                        }}
+                      />
                       <Button type="submit" className="w-full" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
@@ -437,6 +457,13 @@ export default function Auth() {
                           <p className="text-sm text-red-500">{registerWorkerForm.formState.errors.phone.message}</p>
                         )}
                       </div>
+                      <LocationPicker
+                        onLocationSelect={(loc) => {
+                          registerWorkerForm.setValue('latitude', loc.latitude);
+                          registerWorkerForm.setValue('longitude', loc.longitude);
+                          registerWorkerForm.setValue('location_text', loc.location_text || undefined);
+                        }}
+                      />
                       <Button type="submit" className="w-full" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>

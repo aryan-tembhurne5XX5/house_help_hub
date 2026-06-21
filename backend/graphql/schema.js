@@ -13,6 +13,9 @@ const typeDefs = `#graphql
     email: String!
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
     profile_pic: String
     created_at: String
   }
@@ -23,6 +26,10 @@ const typeDefs = `#graphql
     email: String!
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
+    service_radius_km: Int
     bio: String
     profile_pic: String
     avg_rating: Float
@@ -65,6 +72,11 @@ const typeDefs = `#graphql
     profile_pic: String
     avg_rating: Float
     price_per_hour: Float!
+    latitude: Float
+    longitude: Float
+    location_text: String
+    distanceKm: Float
+    recommendationScore: Float
   }
 
   type Booking {
@@ -77,6 +89,9 @@ const typeDefs = `#graphql
     booking_time: String!
     duration_hours: Float!
     address: String!
+    booking_latitude: Float
+    booking_longitude: Float
+    booking_location_text: String
     notes: String
     total_price: Float!
     status: String!
@@ -129,6 +144,10 @@ const typeDefs = `#graphql
     role: String!
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
+    service_radius_km: Int
     bio: String
     avg_rating: Float
   }
@@ -183,6 +202,34 @@ const typeDefs = `#graphql
     created_at: String
   }
 
+  type WorkerLocation {
+    id: Int!
+    worker_id: Int!
+    latitude: Float!
+    longitude: Float!
+    updated_at: String
+  }
+
+  type TravelEstimate {
+    distanceKm: Float!
+    durationMin: Float!
+    etaTimestamp: String!
+    routeCoordinates: [[Float!]!]
+  }
+
+  type LocationAnalytics {
+    area: String!
+    totalBookings: Int!
+    totalWorkers: Int!
+    revenue: Float!
+  }
+
+  type WorkerCoverage {
+    worker_id: Int!
+    radiusKm: Int!
+    coveredAreas: [String!]!
+  }
+
   # ─── Input Types ───────────────────────────────────────────────────────────────
 
   input RegisterUserInput {
@@ -191,6 +238,9 @@ const typeDefs = `#graphql
     password: String!
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
   }
 
   input RegisterWorkerInput {
@@ -199,6 +249,10 @@ const typeDefs = `#graphql
     password: String!
     phone: String!
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
+    service_radius_km: Int
     bio: String
   }
 
@@ -206,12 +260,19 @@ const typeDefs = `#graphql
     name: String
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
   }
 
   input UpdateWorkerProfileInput {
     name: String
     phone: String
     address: String
+    latitude: Float
+    longitude: Float
+    location_text: String
+    service_radius_km: Int
     bio: String
   }
 
@@ -229,6 +290,9 @@ const typeDefs = `#graphql
     bookingTime: String!
     durationHours: Float!
     address: String!
+    latitude: Float
+    longitude: Float
+    locationText: String
     notes: String
   }
 
@@ -258,7 +322,11 @@ const typeDefs = `#graphql
 
     # Services
     services: [Service!]!
-    availableWorkers(serviceId: Int!, date: String!, time: String!): [AvailableWorker!]!
+    availableWorkers(serviceId: Int!, date: String!, time: String!, latitude: Float, longitude: Float, radiusKm: Int): [AvailableWorker!]!
+    nearbyWorkers(latitude: Float!, longitude: Float!, radiusKm: Int, serviceId: Int): [AvailableWorker!]!
+    workerLocation(workerId: Int!): WorkerLocation
+    travelEstimate(workerId: Int!, bookingId: Int!): TravelEstimate
+    workerCoverage(workerId: Int!): WorkerCoverage
 
     # Notifications & Support
     userNotifications(userId: Int!): [Notification!]!
@@ -271,6 +339,7 @@ const typeDefs = `#graphql
     allBookings: [Booking!]!
     serviceAnalytics(serviceId: Int): ServiceAnalytics!
     revenueAnalytics(period: String!): [RevenueData!]!
+    locationAnalytics(area: String): [LocationAnalytics!]!
   }
 
   # ─── Mutations ─────────────────────────────────────────────────────────────────
@@ -295,12 +364,16 @@ const typeDefs = `#graphql
     updateWorkerProfile(workerId: Int!, input: UpdateWorkerProfileInput!): Worker!
     registerWorkerServices(workerId: Int!, services: [ServiceInput!]!): MessageResponse!
     updateWorkerAvailability(workerId: Int!, availability: JSON!): MessageResponse!
+    updateLocation(latitude: Float!, longitude: Float!, locationText: String): MessageResponse!
+    updateWorkerRadius(radiusKm: Int!): MessageResponse!
 
     # Booking
     createBooking(input: CreateBookingInput!): BookingResult!
     acceptBooking(bookingId: Int!): MessageResponse!
     rejectBooking(bookingId: Int!): MessageResponse!
     cancelBooking(bookingId: Int!): MessageResponse!
+    startTravel(bookingId: Int!): MessageResponse!
+    markArrived(bookingId: Int!): MessageResponse!
     completeBooking(bookingId: Int!): MessageResponse!
 
     # Review

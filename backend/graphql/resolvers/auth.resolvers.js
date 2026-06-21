@@ -35,6 +35,9 @@ const registerUserSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  location_text: z.string().optional().nullable(),
 });
 
 const registerWorkerSchema = z.object({
@@ -44,6 +47,10 @@ const registerWorkerSchema = z.object({
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   address: z.string().optional().nullable(),
   bio: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  location_text: z.string().optional().nullable(),
+  service_radius_km: z.number().min(1).max(100).optional().nullable(),
 });
 
 const loginSchema = z.object({
@@ -76,8 +83,9 @@ const authResolvers = {
         throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
       }
 
-      let { name, email, password, phone, address } = parseResult.data;
+      let { name, email, password, phone, address, latitude, longitude, location_text } = parseResult.data;
       address = address ? xss(address) : null;
+      location_text = location_text ? xss(location_text) : null;
 
       // Check if user already exists
       const [existingUsers] = await pool.query('SELECT user_id FROM users WHERE email = ?', [email]);
@@ -93,8 +101,8 @@ const authResolvers = {
 
       // Insert new user
       const [result] = await pool.query(
-        'INSERT INTO users (name, email, password, phone, address, profile_pic) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, email, hashedPassword, phone || null, address || null, profilePic]
+        'INSERT INTO users (name, email, password, phone, address, profile_pic, latitude, longitude, location_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, email, hashedPassword, phone || null, address || null, profilePic, latitude || null, longitude || null, location_text || null]
       );
 
       // Generate JWT token
@@ -107,6 +115,9 @@ const authResolvers = {
         email,
         profile_pic: profilePic,
         role: 'user',
+        latitude: latitude || null,
+        longitude: longitude || null,
+        location_text: location_text || null,
       };
     },
 
@@ -119,9 +130,10 @@ const authResolvers = {
         throw new GraphQLError(parseResult.error.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
       }
 
-      let { name, email, password, phone, address, bio } = parseResult.data;
+      let { name, email, password, phone, address, bio, latitude, longitude, location_text, service_radius_km } = parseResult.data;
       address = address ? xss(address) : null;
       bio = bio ? xss(bio) : null;
+      location_text = location_text ? xss(location_text) : null;
 
       const [existingWorkers] = await pool.query('SELECT worker_id FROM workers WHERE email = ?', [email]);
       if (existingWorkers.length > 0) {
@@ -132,8 +144,8 @@ const authResolvers = {
       const profilePic = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
 
       const [result] = await pool.query(
-        'INSERT INTO workers (name, email, password, phone, address, bio, profile_pic) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [name, email, hashedPassword, phone, address || null, bio || null, profilePic]
+        'INSERT INTO workers (name, email, password, phone, address, bio, profile_pic, latitude, longitude, location_text, service_radius_km) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, email, hashedPassword, phone, address || null, bio || null, profilePic, latitude || null, longitude || null, location_text || null, service_radius_km || 10]
       );
 
       const token = generateToken({ id: result.insertId, email, role: 'worker' });
@@ -145,6 +157,10 @@ const authResolvers = {
         email,
         profile_pic: profilePic,
         role: 'worker',
+        latitude: latitude || null,
+        longitude: longitude || null,
+        location_text: location_text || null,
+        service_radius_km: service_radius_km || 10,
       };
     },
 
@@ -187,6 +203,9 @@ const authResolvers = {
         phone: user.phone,
         address: user.address,
         role: 'user',
+        latitude: user.latitude,
+        longitude: user.longitude,
+        location_text: user.location_text,
       };
     },
 
@@ -231,6 +250,10 @@ const authResolvers = {
         bio: worker.bio,
         avg_rating: worker.avg_rating ? parseFloat(worker.avg_rating) : 0,
         role: 'worker',
+        latitude: worker.latitude,
+        longitude: worker.longitude,
+        location_text: worker.location_text,
+        service_radius_km: worker.service_radius_km,
       };
     },
 

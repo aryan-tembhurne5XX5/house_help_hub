@@ -75,6 +75,34 @@ async function migrate() {
       )
     `);
 
+    console.log('Adding location fields to users...');
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN latitude DECIMAL(10,8)');
+      await pool.query('ALTER TABLE users ADD COLUMN longitude DECIMAL(11,8)');
+      await pool.query('ALTER TABLE users ADD COLUMN location_text VARCHAR(255)');
+    } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+
+    console.log('Adding location fields to workers...');
+    try {
+      await pool.query('ALTER TABLE workers ADD COLUMN latitude DECIMAL(10,8)');
+      await pool.query('ALTER TABLE workers ADD COLUMN longitude DECIMAL(11,8)');
+      await pool.query('ALTER TABLE workers ADD COLUMN location_text VARCHAR(255)');
+      await pool.query('ALTER TABLE workers ADD COLUMN service_radius_km INT DEFAULT 10');
+    } catch(e) { if(e.code !== 'ER_DUP_FIELDNAME') console.error(e); }
+
+    console.log('Creating worker_locations table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS worker_locations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        worker_id INT NOT NULL,
+        latitude DECIMAL(10,8) NOT NULL,
+        longitude DECIMAL(11,8) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (worker_id) REFERENCES workers(worker_id) ON DELETE CASCADE,
+        INDEX idx_worker_id (worker_id)
+      )
+    `);
+
     console.log('Migration successful!');
     process.exit(0);
   } catch (error) {

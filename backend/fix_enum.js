@@ -1,0 +1,1 @@
+import { pool } from './db.js'; pool.query("ALTER TABLE bookings MODIFY COLUMN status ENUM('pending', 'confirmed', 'accepted', 'travelling', 'arrived', 'in_progress', 'completed', 'cancelled', 'rejected') DEFAULT 'pending'").then(() => {console.log('done'); process.exit()});

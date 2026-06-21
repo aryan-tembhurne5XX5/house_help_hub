@@ -8,6 +8,7 @@ import {
   GET_BOOKING_DETAILS,
   GET_SERVICES,
   GET_AVAILABLE_WORKERS,
+  GET_NEARBY_WORKERS,
   GET_USER_NOTIFICATIONS,
   GET_WORKER_NOTIFICATIONS,
   GET_DASHBOARD_STATS,
@@ -19,6 +20,9 @@ import {
   GET_BOOKING_TIMELINE,
   GET_SERVICE_ANALYTICS,
   GET_REVENUE_ANALYTICS,
+  TRAVEL_ESTIMATE,
+  LOCATION_ANALYTICS,
+  WORKER_COVERAGE,
 } from '@/graphql/queries';
 import {
   REGISTER_USER,
@@ -49,6 +53,10 @@ import {
   FORGOT_PASSWORD,
   RESET_PASSWORD,
   CREATE_SUPPORT_TICKET,
+  START_TRAVEL,
+  MARK_ARRIVED,
+  UPDATE_WORKER_RADIUS,
+  UPDATE_LOCATION,
 } from '@/graphql/mutations';
 
 // ─── Helper to wrap Apollo responses in Axios-like format ────────────────────
@@ -172,6 +180,12 @@ export const cancelBooking = (bookingId: number) =>
 export const completeBooking = (bookingId: number) =>
   wrapMutation(COMPLETE_BOOKING, { bookingId }, 'completeBooking');
 
+export const startTravel = (bookingId: number) =>
+  wrapMutation(START_TRAVEL, { bookingId }, 'startTravel');
+
+export const markArrived = (bookingId: number) =>
+  wrapMutation(MARK_ARRIVED, { bookingId }, 'markArrived');
+
 export const getBookingDetails = (bookingId: number) =>
   wrapQuery(GET_BOOKING_DETAILS, { bookingId }, 'bookingDetails');
 
@@ -206,8 +220,11 @@ export const markAllWorkerNotificationsRead = (workerId: number) =>
 export const getServices = () =>
   wrapQuery(GET_SERVICES, {}, 'services');
 
-export const getAvailableWorkers = (params: { serviceId: number, date: string, time: string }) =>
+export const getAvailableWorkers = (params: { serviceId: number; date: string; time: string; latitude?: number; longitude?: number; radiusKm?: number }) =>
   wrapQuery(GET_AVAILABLE_WORKERS, params, 'availableWorkers');
+
+export const getNearbyWorkers = (params: { latitude: number; longitude: number; radiusKm?: number; serviceId?: number }) =>
+  wrapQuery(GET_NEARBY_WORKERS, params, 'nearbyWorkers');
 
 // ─── Admin Services ─────────────────────────────────────────────────────────
 
@@ -244,6 +261,9 @@ export const getServiceAnalytics = (serviceId?: number) =>
 export const getRevenueAnalytics = (period: string) =>
   wrapQuery(GET_REVENUE_ANALYTICS, { period }, 'revenueAnalytics');
 
+export const getLocationAnalytics = (area?: string) =>
+  wrapQuery(LOCATION_ANALYTICS, { area }, 'locationAnalytics');
+
 // ─── Support Services ───────────────────────────────────────────────────────
 
 export const createSupportTicket = (subject: string, message: string) =>
@@ -259,5 +279,17 @@ export const getWorkerReviews = (workerId: number) =>
 
 export const getBookingTimeline = (bookingId: number) =>
   wrapQuery(GET_BOOKING_TIMELINE, { bookingId }, 'bookingTimeline');
+
+export const getTravelEstimate = (workerId: number, bookingId: number) =>
+  wrapQuery(TRAVEL_ESTIMATE, { workerId, bookingId }, 'travelEstimate');
+
+export const getWorkerCoverage = (workerId: number) =>
+  wrapQuery(WORKER_COVERAGE, { workerId }, 'workerCoverage');
+
+export const updateWorkerRadius = (radiusKm: number) =>
+  wrapMutation(UPDATE_WORKER_RADIUS, { radiusKm }, 'updateWorkerRadius');
+
+export const updateLocation = (latitude: number, longitude: number, locationText?: string) =>
+  wrapMutation(UPDATE_LOCATION, { latitude, longitude, locationText }, 'updateLocation');
 
 export default client;

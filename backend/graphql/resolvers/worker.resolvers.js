@@ -1,6 +1,7 @@
 
 import { GraphQLError } from 'graphql';
 import { requireWorker, requireAuth } from '../../middleware/permissions.js';
+import { calculateDistance, calculateRecommendationScore } from '../../utils/location.js';
 
 const workerResolvers = {
   Query: {
@@ -13,7 +14,7 @@ const workerResolvers = {
       }
 
       const [rows] = await context.pool.query(
-        'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, created_at FROM workers WHERE worker_id = ?',
+        'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, latitude, longitude, location_text, service_radius_km, created_at FROM workers WHERE worker_id = ?',
         [workerId]
       );
 
@@ -71,7 +72,7 @@ const workerResolvers = {
          FROM bookings b
          JOIN users u ON b.user_id = u.user_id
          JOIN services s ON b.service_id = s.service_id
-         WHERE b.worker_id = ? AND b.status IN ('pending', 'confirmed', 'completed')
+         WHERE b.worker_id = ? AND b.status IN ('pending', 'confirmed', 'accepted', 'travelling', 'arrived', 'in_progress', 'completed')
          ORDER BY b.created_at DESC`,
         [workerId]
       );
@@ -85,7 +86,7 @@ const workerResolvers = {
     },
 
     // ─── Get Available Workers ──────────────────────────────────────────────
-    availableWorkers: async (_, { serviceId, date, time }, context) => {
+    availableWorkers: async (_, { serviceId, date, time, latitude, longitude, radiusKm }, context) => {
       requireAuth(context);
 
       // Convert day of week from date
@@ -103,7 +104,8 @@ const workerResolvers = {
 
       // Find available workers who provide this service and are available at the requested time
       const [rows] = await context.pool.query(
-        `SELECT w.worker_id, w.name, w.phone, w.profile_pic, w.avg_rating, ws.price_per_hour 
+        `SELECT w.worker_id, w.name, w.phone, w.profile_pic, w.avg_rating, w.latitude, w.longitude, w.location_text, w.service_radius_km, ws.price_per_hour,
+                (SELECT COUNT(*) FROM bookings b2 WHERE b2.worker_id = w.worker_id AND b2.status = 'completed') as completed_jobs
          FROM workers w
          JOIN worker_services ws ON w.worker_id = ws.worker_id
          JOIN worker_availability wa ON w.worker_id = wa.worker_id
@@ -111,6 +113,7 @@ const workerResolvers = {
          AND wa.day_of_week = ?
          AND wa.time_slot = ?
          AND wa.is_available = 1
+         AND w.is_blocked = 0
          AND NOT EXISTS (
            SELECT 1 FROM bookings b
            WHERE b.worker_id = w.worker_id
@@ -121,10 +124,125 @@ const workerResolvers = {
         [serviceId, dayOfWeek, timeSlot, date, time]
       );
 
-      return rows.map(r => ({
-        ...r,
-        avg_rating: r.avg_rating ? parseFloat(r.avg_rating) : 0,
-      }));
+      let workers = rows.map(r => {
+        const avg_rating = r.avg_rating ? parseFloat(r.avg_rating) : 0;
+        let distanceKm = null;
+        let recommendationScore = null;
+
+        if (latitude !== undefined && longitude !== undefined && r.latitude && r.longitude) {
+          distanceKm = calculateDistance(latitude, longitude, r.latitude, r.longitude);
+        }
+
+        recommendationScore = calculateRecommendationScore(distanceKm, avg_rating, r.completed_jobs, true);
+
+        return {
+          ...r,
+          avg_rating,
+          distanceKm,
+          recommendationScore
+        };
+      });
+
+      // Filter by radius if provided and user passed coordinates
+      if (latitude !== undefined && longitude !== undefined) {
+        workers = workers.filter(w => {
+          // Compare distance against the stricter of: user's requested radius OR worker's service radius
+          const effectiveRadius = Math.min(radiusKm || 1000, w.service_radius_km || 1000);
+          return w.distanceKm !== null && w.distanceKm <= effectiveRadius;
+        });
+      }
+
+      // Sort by recommendation score
+      workers.sort((a, b) => b.recommendationScore - a.recommendationScore);
+
+      return workers;
+    },
+
+    // ─── Nearby Workers ───────────────────────────────────────────────────────
+    nearbyWorkers: async (_, { latitude, longitude, radiusKm, serviceId }, context) => {
+      requireAuth(context);
+
+      let query = `
+        SELECT w.worker_id, w.name, w.phone, w.profile_pic, w.avg_rating, w.latitude, w.longitude, w.location_text, w.service_radius_km,
+               (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = w.worker_id AND b.status = 'completed') as completed_jobs,
+               (SELECT MIN(price_per_hour) FROM worker_services ws WHERE ws.worker_id = w.worker_id) as price_per_hour
+        FROM workers w
+        WHERE w.is_blocked = 0 AND w.latitude IS NOT NULL AND w.longitude IS NOT NULL
+      `;
+      let params = [];
+
+      if (serviceId) {
+        query = `
+          SELECT w.worker_id, w.name, w.phone, w.profile_pic, w.avg_rating, w.latitude, w.longitude, w.location_text, w.service_radius_km, ws.price_per_hour,
+                 (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = w.worker_id AND b.status = 'completed') as completed_jobs
+          FROM workers w
+          JOIN worker_services ws ON w.worker_id = ws.worker_id
+          WHERE w.is_blocked = 0 AND w.latitude IS NOT NULL AND w.longitude IS NOT NULL
+          AND ws.service_id = ?
+        `;
+        params.push(serviceId);
+      }
+
+      const [rows] = await context.pool.query(query, params);
+
+      let workers = rows.map(r => {
+        const avg_rating = r.avg_rating ? parseFloat(r.avg_rating) : 0;
+        const distanceKm = calculateDistance(latitude, longitude, r.latitude, r.longitude);
+        const recommendationScore = calculateRecommendationScore(distanceKm, avg_rating, r.completed_jobs, true);
+
+        return {
+          ...r,
+          avg_rating,
+          distanceKm,
+          recommendationScore
+        };
+      });
+
+      // Filter by radius
+      workers = workers.filter(w => {
+        const effectiveRadius = Math.min(radiusKm || 1000, w.service_radius_km || 1000);
+        return w.distanceKm <= effectiveRadius;
+      });
+
+      // Sort by distance natively, then recommendation score could be used
+      workers.sort((a, b) => b.recommendationScore - a.recommendationScore);
+
+      return workers;
+    },
+
+    // ─── Worker Location ──────────────────────────────────────────────────────
+    workerLocation: async (_, { workerId }, context) => {
+      requireAuth(context);
+
+      if (context.user.role === 'user') {
+        const [activeBookings] = await context.pool.query(
+          `SELECT booking_id FROM bookings 
+           WHERE user_id = ? AND worker_id = ? AND status IN ('accepted', 'confirmed', 'travelling', 'arrived', 'in_progress')`,
+          [context.user.id, workerId]
+        );
+        if (activeBookings.length === 0) {
+          throw new GraphQLError('Forbidden: You can only track workers for active bookings', { extensions: { code: 'FORBIDDEN' } });
+        }
+      } else if (context.user.role === 'worker' && context.user.id !== workerId) {
+        throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
+      }
+
+      const [rows] = await context.pool.query(
+        'SELECT * FROM worker_locations WHERE worker_id = ? ORDER BY updated_at DESC LIMIT 1',
+        [workerId]
+      );
+      
+      if (rows.length > 0) {
+        return rows[0];
+      }
+
+      // Fallback to worker base profile location
+      const [workerRows] = await context.pool.query(
+        'SELECT latitude, longitude, updated_at FROM workers WHERE worker_id = ?',
+        [workerId]
+      );
+
+      return workerRows[0] || null;
     },
 
     // ─── Search Workers ─────────────────────────────────────────────────────
@@ -161,6 +279,27 @@ const workerResolvers = {
       );
       return rows;
     },
+
+    // ─── Worker Coverage ────────────────────────────────────────────────────
+    workerCoverage: async (_, { workerId }, context) => {
+      requireAuth(context);
+
+      const [rows] = await context.pool.query(
+        'SELECT service_radius_km FROM workers WHERE worker_id = ?',
+        [workerId]
+      );
+
+      if (rows.length === 0) {
+        throw new GraphQLError('Worker not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
+      // Mock covered areas since we don't have a real GIS boundary database
+      return {
+        worker_id: workerId,
+        radiusKm: rows[0].service_radius_km || 10,
+        coveredAreas: ['Local District', 'Neighboring Zone']
+      };
+    },
   },
 
   Mutation: {
@@ -171,11 +310,11 @@ const workerResolvers = {
         throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } });
       }
 
-      const { name, phone, address, bio } = input;
+      const { name, phone, address, bio, latitude, longitude, location_text, service_radius_km } = input;
 
       const [result] = await context.pool.query(
-        'UPDATE workers SET name = ?, phone = ?, address = ?, bio = ? WHERE worker_id = ?',
-        [name, phone, address || null, bio || null, workerId]
+        'UPDATE workers SET name = ?, phone = ?, address = ?, bio = ?, latitude = ?, longitude = ?, location_text = ?, service_radius_km = ? WHERE worker_id = ?',
+        [name, phone, address || null, bio || null, latitude || null, longitude || null, location_text || null, service_radius_km || 10, workerId]
       );
 
       if (result.affectedRows === 0) {
@@ -183,7 +322,7 @@ const workerResolvers = {
       }
 
       const [updatedWorker] = await context.pool.query(
-        'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, created_at FROM workers WHERE worker_id = ?',
+        'SELECT worker_id, name, email, phone, address, bio, profile_pic, avg_rating, latitude, longitude, location_text, service_radius_km, created_at FROM workers WHERE worker_id = ?',
         [workerId]
       );
 
@@ -258,6 +397,90 @@ const workerResolvers = {
         await context.pool.query('ROLLBACK');
         throw error;
       }
+    },
+    // ─── Update Worker Radius ───────────────────────────────────────────────
+    updateWorkerRadius: async (_, { radiusKm }, context) => {
+      requireWorker(context);
+      
+      await context.pool.query(
+        'UPDATE workers SET service_radius_km = ? WHERE worker_id = ?',
+        [radiusKm, context.user.id]
+      );
+      
+      return { message: 'Service radius updated successfully' };
+    },
+
+    // ─── Update Location (Live tracking or general update) ──────────────────
+    updateLocation: async (_, { latitude, longitude, locationText }, context) => {
+      requireAuth(context);
+      const { id, role } = context.user;
+
+      if (role === 'worker') {
+        // Update base location
+        await context.pool.query(
+          'UPDATE workers SET latitude = ?, longitude = ?, location_text = COALESCE(?, location_text) WHERE worker_id = ?',
+          [latitude, longitude, locationText || null, id]
+        );
+        
+        // Log live location
+        await context.pool.query(
+          'INSERT INTO worker_locations (worker_id, latitude, longitude) VALUES (?, ?, ?)',
+          [id, latitude, longitude]
+        );
+
+        // Phase 13: Location-Based Notifications
+        const [activeBookings] = await context.pool.query(
+          `SELECT b.booking_id, b.user_id, u.latitude AS user_lat, u.longitude AS user_lng
+           FROM bookings b
+           JOIN users u ON b.user_id = u.user_id
+           WHERE b.worker_id = ? AND b.status IN ('accepted', 'confirmed')`,
+          [id]
+        );
+
+        for (const booking of activeBookings) {
+          if (booking.user_lat && booking.user_lng) {
+            const distance = calculateDistance(latitude, longitude, booking.user_lat, booking.user_lng);
+            if (distance <= 1.0) { // within 1 km
+              const [recentNotifs] = await context.pool.query(
+                `SELECT notification_id FROM notifications 
+                 WHERE user_id = ? AND type = 'worker_arriving' AND created_at > NOW() - INTERVAL 1 HOUR`,
+                [booking.user_id]
+              );
+
+              if (recentNotifs.length === 0) {
+                await context.pool.query(
+                  `INSERT INTO notifications (user_id, title, message, type)
+                   VALUES (?, 'Worker Arriving Soon', 'Your worker is less than 1km away!', 'worker_arriving')`,
+                  [booking.user_id]
+                );
+              }
+            }
+          }
+        }
+      } else if (role === 'user') {
+        await context.pool.query(
+          'UPDATE users SET latitude = ?, longitude = ?, location_text = COALESCE(?, location_text) WHERE user_id = ?',
+          [latitude, longitude, locationText || null, id]
+        );
+      }
+
+      return { message: 'Location updated successfully' };
+    },
+
+    // ─── Update Worker Radius ───────────────────────────────────────────────
+    updateWorkerRadius: async (_, { radiusKm }, context) => {
+      requireWorker(context);
+      
+      if (radiusKm <= 0 || radiusKm > 100) {
+        throw new GraphQLError('Invalid radius. Must be between 1 and 100 km', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+
+      await context.pool.query(
+        'UPDATE workers SET service_radius_km = ? WHERE worker_id = ?',
+        [radiusKm, context.user.id]
+      );
+
+      return { message: 'Service radius updated successfully' };
     },
   },
 };

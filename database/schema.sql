@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
     address TEXT,
+    latitude DECIMAL(10,8),
+    longitude DECIMAL(11,8),
+    location_text VARCHAR(255),
     profile_pic VARCHAR(255),
     is_blocked BOOLEAN DEFAULT FALSE,
     is_superuser BOOLEAN DEFAULT FALSE,
@@ -24,6 +27,10 @@ CREATE TABLE IF NOT EXISTS workers (
     password VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     address TEXT,
+    latitude DECIMAL(10,8),
+    longitude DECIMAL(11,8),
+    location_text VARCHAR(255),
+    service_radius_km INT DEFAULT 10,
     bio TEXT,
     profile_pic VARCHAR(255),
     avg_rating DECIMAL(3, 2) DEFAULT 0.00,
@@ -60,6 +67,16 @@ CREATE TABLE IF NOT EXISTS worker_availability (
     is_available BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (worker_id) REFERENCES workers(worker_id) ON DELETE CASCADE,
     UNIQUE KEY (worker_id, day_of_week, time_slot)
+);
+
+-- Worker Locations (Live tracking)
+CREATE TABLE IF NOT EXISTS worker_locations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    worker_id INT NOT NULL,
+    latitude DECIMAL(10,8) NOT NULL,
+    longitude DECIMAL(11,8) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (worker_id) REFERENCES workers(worker_id) ON DELETE CASCADE
 );
 
 -- Bookings Table
@@ -137,7 +154,10 @@ CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_bookings_date ON bookings(booking_date);
 CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_worker ON notifications(worker_id, is_read);
-
+CREATE INDEX idx_worker_location ON workers(latitude, longitude);
+CREATE INDEX idx_worker_locations_worker ON worker_locations(worker_id, updated_at);
+CREATE INDEX idx_worker_availability_day_time ON worker_availability(day_of_week, time_slot, is_available);
+CREATE INDEX idx_booking_worker_status ON bookings(worker_id, status);
 
 -- Initial Seed Data
 INSERT INTO users (name, email, password, is_superuser, profile_pic) 

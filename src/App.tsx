@@ -25,6 +25,8 @@ const BookingConfirmation = lazy(() => import('./pages/BookingConfirmation'))
 const UserProfile = lazy(() => import('./pages/user/Profile'))
 const UserNotifications = lazy(() => import('./pages/user/Notifications'))
 const UserBookingDetail = lazy(() => import('./pages/user/BookingDetail'))
+const NearbyWorkers = lazy(() => import('./pages/user/NearbyWorkers'))
+const TrackingView = lazy(() => import('./pages/user/TrackingView'))
 
 // Worker routes
 const WorkerDashboard = lazy(() => import('./pages/worker/Dashboard'))
@@ -40,6 +42,7 @@ const WorkersList = lazy(() => import('./pages/admin/WorkersList'))
 const BookingsList = lazy(() => import('./pages/admin/BookingsList'))
 const ServicesList = lazy(() => import('./pages/admin/ServicesList'))
 const AdminReports = lazy(() => import('./pages/admin/Reports'))
+const LocationAnalytics = lazy(() => import('./pages/admin/LocationAnalytics'))
 
 // Create a client
 const queryClient = new QueryClient({
@@ -74,6 +77,8 @@ function App() {
             <Route path="/user/profile" element={<ProtectedRoute role="user"><UserProfile /></ProtectedRoute>} />
             <Route path="/user/notifications" element={<ProtectedRoute role="user"><UserNotifications /></ProtectedRoute>} />
             <Route path="/user/booking/:id" element={<ProtectedRoute role="user"><UserBookingDetail /></ProtectedRoute>} />
+            <Route path="/user/booking/:id/track" element={<ProtectedRoute role="user"><TrackingView /></ProtectedRoute>} />
+            <Route path="/user/nearby-workers" element={<ProtectedRoute role="user"><NearbyWorkers /></ProtectedRoute>} />
             <Route path="/booking-confirmation" element={<ProtectedRoute role="user"><BookingConfirmation /></ProtectedRoute>} />
             
             {/* Worker routes */}
@@ -90,6 +95,7 @@ function App() {
             <Route path="/admin/bookings" element={<ProtectedRoute role="admin"><BookingsList /></ProtectedRoute>} />
             <Route path="/admin/services" element={<ProtectedRoute role="admin"><ServicesList /></ProtectedRoute>} />
             <Route path="/admin/reports" element={<ProtectedRoute role="admin"><AdminReports /></ProtectedRoute>} />
+            <Route path="/admin/location-analytics" element={<ProtectedRoute role="admin"><LocationAnalytics /></ProtectedRoute>} />
             
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getUserBookings, cancelBooking } from "@/utils/api";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Calendar, Clock, User, Phone, Eye } from "lucide-react";
+import { Loader2, Calendar, Clock, User, Phone, Eye, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { formatBookingDateTime, getStatusColor, getStatusLabel } from "@/utils/dateUtils";
 
@@ -64,7 +64,7 @@ export default function UserDashboard() {
   };
 
   const upcomingBookings = bookings?.filter(
-    booking => booking.status === "confirmed" || booking.status === "pending" || booking.status === "accepted"
+    booking => ["confirmed", "pending", "accepted", "travelling", "arrived", "in_progress"].includes(booking.status)
   ) || [];
   
   const pastBookings = bookings?.filter(
@@ -80,11 +80,19 @@ export default function UserDashboard() {
             <p className="text-gray-500 mt-1">Manage your service bookings</p>
           </div>
           
-          <Link to="/user/book" className="mt-4 sm:mt-0">
-            <Button>
-              Book New Service
-            </Button>
-          </Link>
+          <div className="flex gap-2 mt-4 sm:mt-0">
+            <Link to="/user/nearby-workers">
+              <Button variant="outline" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Discover Nearby
+              </Button>
+            </Link>
+            <Link to="/user/book">
+              <Button>
+                Book New Service
+              </Button>
+            </Link>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -170,7 +178,7 @@ export default function UserDashboard() {
                     </CardHeader>
                     
                     <CardContent>
-                      {booking.status === "confirmed" ? (
+                      {["confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(booking.status) ? (
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-4 rounded-lg">
                             <h4 className="font-medium mb-2">Worker Information</h4>
@@ -202,16 +210,24 @@ export default function UserDashboard() {
                                 <Eye className="h-3 w-3 mr-1" /> Details
                               </Button>
                             </Link>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-destructive"
-                              onClick={() => handleCancel(booking.booking_id)}
-                              disabled={isProcessing === booking.booking_id}
-                            >
-                              {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                              Cancel
-                            </Button>
+                            {(booking.status === "accepted" || booking.status === "travelling" || booking.status === "arrived" || booking.status === "in_progress") && (
+                              <Link to={`/user/booking/${booking.booking_id}/track`}>
+                                <Button variant="outline" size="sm" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                  Track Location
+                                </Button>
+                              </Link>
+                            )}
+                            {(booking.status === "pending" || booking.status === "confirmed" || booking.status === "accepted") && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => handleCancel(booking.booking_id)}
+                                disabled={isProcessing === booking.booking_id}
+                              >
+                                {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Cancel"}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -225,16 +241,23 @@ export default function UserDashboard() {
                             <p className="font-medium">Price: ₹{parseFloat(booking.total_price.toString()).toFixed(2)}</p>
                           </div>
                           
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-destructive"
-                            onClick={() => handleCancel(booking.booking_id)}
-                            disabled={isProcessing === booking.booking_id}
-                          >
-                            {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                            Cancel Request
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Link to={`/user/booking/${booking.booking_id}`}>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-3 w-3 mr-1" /> Details
+                              </Button>
+                            </Link>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-destructive"
+                              onClick={() => handleCancel(booking.booking_id)}
+                              disabled={isProcessing === booking.booking_id}
+                            >
+                              {isProcessing === booking.booking_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </CardContent>

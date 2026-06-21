@@ -26,6 +26,7 @@ import {
   DollarSign,
   IndianRupeeIcon,
   User,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAdminDashboardData, getAllUsers, getAllWorkers, getAllBookings } from "@/utils/api";
@@ -203,6 +204,17 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">View revenue trends, service analytics, and support tickets.</p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:border-primary transition-colors cursor-pointer" onClick={() => navigate('/admin/location-analytics')}>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <MapPin className="mr-2 h-5 w-5 text-primary" /> Location Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">View booking and worker coverage heatmaps by area.</p>
                 </CardContent>
               </Card>
             </div>
