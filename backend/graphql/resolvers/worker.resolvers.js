@@ -72,7 +72,7 @@ const workerResolvers = {
          FROM bookings b
          JOIN users u ON b.user_id = u.user_id
          JOIN services s ON b.service_id = s.service_id
-         WHERE b.worker_id = ? AND b.status IN ('pending', 'confirmed', 'accepted', 'travelling', 'arrived', 'in_progress', 'completed')
+         WHERE b.worker_id = ? AND b.status IN ('pending', 'confirmed', 'accepted', 'travelling', 'arrived', 'waiting_for_schedule', 'in_progress', 'completed')
          ORDER BY b.created_at DESC`,
         [workerId]
       );
@@ -217,7 +217,7 @@ const workerResolvers = {
       if (context.user.role === 'user') {
         const [activeBookings] = await context.pool.query(
           `SELECT booking_id FROM bookings 
-           WHERE user_id = ? AND worker_id = ? AND status IN ('accepted', 'confirmed', 'travelling', 'arrived', 'in_progress')`,
+           WHERE user_id = ? AND worker_id = ? AND status IN ('accepted', 'confirmed', 'travelling', 'arrived', 'waiting_for_schedule', 'in_progress')`,
           [context.user.id, workerId]
         );
         if (activeBookings.length === 0) {

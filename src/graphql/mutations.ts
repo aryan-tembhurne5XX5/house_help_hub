@@ -139,7 +139,7 @@ export const UPDATE_WORKER_AVAILABILITY = gql`
   }
 `;
 
-// ─── Booking Mutations ──────────────────────────────────────────────────────
+// ─── Booking Lifecycle Mutations ────────────────────────────────────────────
 
 export const CREATE_BOOKING = gql`
   mutation CreateBooking($input: CreateBookingInput!) {
@@ -175,9 +175,57 @@ export const CANCEL_BOOKING = gql`
   }
 `;
 
-export const COMPLETE_BOOKING = gql`
-  mutation CompleteBooking($bookingId: Int!) {
-    completeBooking(bookingId: $bookingId) {
+export const START_TRAVEL = gql`
+  mutation StartTravel($bookingId: Int!) {
+    startTravel(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const MARK_ARRIVED = gql`
+  mutation MarkArrived($bookingId: Int!, $latitude: Float!, $longitude: Float!) {
+    markArrived(bookingId: $bookingId, latitude: $latitude, longitude: $longitude) {
+      message
+    }
+  }
+`;
+
+export const CONFIRM_ARRIVAL = gql`
+  mutation ConfirmArrival($bookingId: Int!) {
+    confirmArrival(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const START_SERVICE = gql`
+  mutation StartService($bookingId: Int!) {
+    startService(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const REQUEST_COMPLETION = gql`
+  mutation RequestCompletion($bookingId: Int!) {
+    requestCompletion(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const CONFIRM_COMPLETION = gql`
+  mutation ConfirmCompletion($bookingId: Int!) {
+    confirmCompletion(bookingId: $bookingId) {
+      message
+    }
+  }
+`;
+
+export const REPORT_ISSUE = gql`
+  mutation ReportIssue($bookingId: Int!, $reason: String!) {
+    reportIssue(bookingId: $bookingId, reason: $reason) {
       message
     }
   }
@@ -281,22 +329,6 @@ export const RESET_PASSWORD = gql`
 export const CREATE_SUPPORT_TICKET = gql`
   mutation CreateSupportTicket($subject: String!, $message: String!) {
     createSupportTicket(subject: $subject, message: $message) {
-      message
-    }
-  }
-`;
-
-export const START_TRAVEL = gql`
-  mutation StartTravel($bookingId: Int!) {
-    startTravel(bookingId: $bookingId) {
-      message
-    }
-  }
-`;
-
-export const MARK_ARRIVED = gql`
-  mutation MarkArrived($bookingId: Int!) {
-    markArrived(bookingId: $bookingId) {
       message
     }
   }

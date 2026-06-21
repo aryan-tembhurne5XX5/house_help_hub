@@ -90,6 +90,11 @@ export const GET_WORKER_REQUESTS = gql`
       status
       created_at
       ticket_number
+      arrival_delay_minutes
+      service_start_delay_minutes
+      service_duration_minutes
+      travel_duration_minutes
+      early_arrival_minutes
     }
   }
 `;
@@ -114,6 +119,18 @@ export const GET_BOOKING_DETAILS = gql`
       total_price
       status
       created_at
+      travel_started_at
+      arrived_at
+      service_started_at
+      completion_requested_at
+      scheduled_start_datetime
+      scheduled_end_datetime
+      arrival_delay_minutes
+      service_start_delay_minutes
+      travel_duration_minutes
+      service_duration_minutes
+      early_arrival_minutes
+      user_confirmed_arrival
       user_name
       user_phone
       user_email
@@ -298,6 +315,8 @@ export const GET_BOOKING_TIMELINE = gql`
         description
         timestamp
         status
+        delay
+        notes
       }
     }
   }

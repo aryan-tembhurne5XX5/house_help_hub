@@ -15,7 +15,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { getWorkerRequests, acceptBooking, rejectBooking, completeBooking } from "@/utils/api";
+import { getWorkerRequests, acceptBooking, rejectBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Check, X, Calendar, Clock, User, Eye } from "lucide-react";
@@ -56,7 +56,7 @@ export default function WorkerDashboard() {
     refetchOnWindowFocus: true,
   });
 
-  const activeRequests = requests?.filter(r => ["pending", "confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(r.status)) || [];
+  const activeRequests = requests?.filter(r => ["pending", "confirmed", "accepted", "travelling", "arrived", "waiting_for_schedule", "service_started", "completion_requested", "in_progress"].includes(r.status)) || [];
   const pastRequests = requests?.filter(r => r.status === "completed" || r.status === "rejected" || r.status === "cancelled") || [];
 
   const handleAccept = async (requestId: number) => {
@@ -89,25 +89,36 @@ export default function WorkerDashboard() {
     }
   };
 
-  const handleComplete = async (requestId: number) => {
-    setProcessingBookingId(requestId);
 
-    try {
-      await completeBooking(requestId);
-      toast.success("Job marked as completed successfully!");
-      refetch();
-    } catch (error) {
-      console.error("Error completing booking:", error);
-      toast.error("Failed to complete the job. Please try again.");
-    } finally {
-      setProcessingBookingId(null);
-    }
-  };
 
   const getTotalEarnings = () => {
     return requests
       ?.filter(r => r.status === "completed")
       .reduce((sum, request) => sum + parseFloat(request.total_price.toString()), 0) || 0;
+  };
+
+  // ─── Analytics Metrics ───
+  const completedJobs = requests?.filter(r => r.status === "completed") || [];
+
+  const getAverageDelay = () => {
+    const jobsWithDelay = completedJobs.filter(r => r.arrival_delay_minutes !== null && r.arrival_delay_minutes !== undefined);
+    if (jobsWithDelay.length === 0) return 0;
+    const totalDelay = jobsWithDelay.reduce((sum, r) => sum + r.arrival_delay_minutes, 0);
+    return Math.round(totalDelay / jobsWithDelay.length);
+  };
+
+  const getOnTimePercentage = () => {
+    const jobsWithDelay = completedJobs.filter(r => r.arrival_delay_minutes !== null && r.arrival_delay_minutes !== undefined);
+    if (jobsWithDelay.length === 0) return 100;
+    const onTimeJobs = jobsWithDelay.filter(r => r.arrival_delay_minutes <= 0);
+    return Math.round((onTimeJobs.length / jobsWithDelay.length) * 100);
+  };
+
+  const getAvgServiceDuration = () => {
+    const jobsWithDuration = completedJobs.filter(r => r.service_duration_minutes !== null && r.service_duration_minutes !== undefined);
+    if (jobsWithDuration.length === 0) return 0;
+    const totalDuration = jobsWithDuration.reduce((sum, r) => sum + r.service_duration_minutes, 0);
+    return Math.round(totalDuration / jobsWithDuration.length);
   };
 
   return (
@@ -159,6 +170,39 @@ export default function WorkerDashboard() {
             <CardContent>
               <p className="text-3xl font-bold">
                 ₹{getTotalEarnings().toFixed(2)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-primary">Avg Arrival Delay</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                {getAverageDelay() > 0 ? `+${getAverageDelay()} min` : getAverageDelay() < 0 ? `${Math.abs(getAverageDelay())} min early` : 'On time'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-primary">On-Time Arrival %</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{getOnTimePercentage()}%</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-primary">Avg Service Duration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">
+                {Math.floor(getAvgServiceDuration() / 60)}h {getAvgServiceDuration() % 60}m
               </p>
             </CardContent>
           </Card>
@@ -261,22 +305,7 @@ export default function WorkerDashboard() {
                                     </Button>
                                   </>
                                 )}
-                                {["confirmed", "accepted", "travelling", "arrived", "in_progress"].includes(request.status) && (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={() => handleComplete(request.booking_id)}
-                                    disabled={processingBookingId === request.booking_id}
-                                    className="bg-green-600 hover:bg-green-700 text-white"
-                                  >
-                                    {processingBookingId === request.booking_id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                    ) : (
-                                      <Check className="h-4 w-4 mr-1" />
-                                    )}
-                                    Complete Job
-                                  </Button>
-                                )}
+
                                 <Link to={`/worker/booking/${request.booking_id}`}>
                                   <Button size="sm" variant="outline">
                                     <Eye className="h-4 w-4 mr-1" /> Details

@@ -40,7 +40,13 @@ import {
   ACCEPT_BOOKING,
   REJECT_BOOKING,
   CANCEL_BOOKING,
-  COMPLETE_BOOKING,
+  START_TRAVEL,
+  MARK_ARRIVED,
+  CONFIRM_ARRIVAL,
+  START_SERVICE,
+  REQUEST_COMPLETION,
+  CONFIRM_COMPLETION,
+  REPORT_ISSUE,
   CREATE_REVIEW,
   MARK_NOTIFICATION_READ,
   MARK_ALL_USER_NOTIFICATIONS_READ,
@@ -53,8 +59,6 @@ import {
   FORGOT_PASSWORD,
   RESET_PASSWORD,
   CREATE_SUPPORT_TICKET,
-  START_TRAVEL,
-  MARK_ARRIVED,
   UPDATE_WORKER_RADIUS,
   UPDATE_LOCATION,
 } from '@/graphql/mutations';
@@ -163,7 +167,7 @@ export const updateWorkerAvailability = (workerId: number, availability: any) =>
 export const getWorkerRequests = (workerId: number) =>
   wrapQuery(GET_WORKER_REQUESTS, { workerId }, 'workerRequests');
 
-// ─── Booking Services ───────────────────────────────────────────────────────
+// ─── Booking Lifecycle Services ─────────────────────────────────────────────
 
 export const createBooking = (bookingData: any) =>
   wrapMutation(CREATE_BOOKING, { input: bookingData }, 'createBooking');
@@ -177,14 +181,26 @@ export const rejectBooking = (bookingId: number) =>
 export const cancelBooking = (bookingId: number) =>
   wrapMutation(CANCEL_BOOKING, { bookingId }, 'cancelBooking');
 
-export const completeBooking = (bookingId: number) =>
-  wrapMutation(COMPLETE_BOOKING, { bookingId }, 'completeBooking');
-
 export const startTravel = (bookingId: number) =>
   wrapMutation(START_TRAVEL, { bookingId }, 'startTravel');
 
-export const markArrived = (bookingId: number) =>
-  wrapMutation(MARK_ARRIVED, { bookingId }, 'markArrived');
+export const markArrived = (bookingId: number, latitude: number, longitude: number) =>
+  wrapMutation(MARK_ARRIVED, { bookingId, latitude, longitude }, 'markArrived');
+
+export const confirmArrival = (bookingId: number) =>
+  wrapMutation(CONFIRM_ARRIVAL, { bookingId }, 'confirmArrival');
+
+export const startService = (bookingId: number) =>
+  wrapMutation(START_SERVICE, { bookingId }, 'startService');
+
+export const requestCompletion = (bookingId: number) =>
+  wrapMutation(REQUEST_COMPLETION, { bookingId }, 'requestCompletion');
+
+export const confirmCompletion = (bookingId: number) =>
+  wrapMutation(CONFIRM_COMPLETION, { bookingId }, 'confirmCompletion');
+
+export const reportIssue = (bookingId: number, reason: string) =>
+  wrapMutation(REPORT_ISSUE, { bookingId, reason }, 'reportIssue');
 
 export const getBookingDetails = (bookingId: number) =>
   wrapQuery(GET_BOOKING_DETAILS, { bookingId }, 'bookingDetails');

@@ -19,34 +19,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getServices, getAvailableWorkers, createBooking } from "@/utils/api";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, User, Clock, Calendar, MapPin } from "lucide-react";
+import { Loader2, User, Clock, Calendar, MapPin, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MapPicker } from "@/components/MapPicker";
 
-const getDateLimits = () => {
-  const today = new Date();
-  const maxDate = new Date();
-  maxDate.setDate(today.getDate() + 14); // Allow booking up to 2 weeks in advance
-  
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-  
-  return {
-    min: formatDate(today),
-    max: formatDate(maxDate),
-  };
-};
+// ─── Date Picker: Only today → today+7, NO free text ────────────────────────
 
-const dateLimits = getDateLimits();
+const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const generateAllowedDates = (): { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[] => {
+  const dates = [];
+  const today = new Date();
+  
+  for (let i = 0; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    dates.push({
+      dateStr: `${year}-${month}-${day}`,
+      dayName: DAYS_SHORT[d.getDay()],
+      dayNum: d.getDate(),
+      monthName: MONTHS_SHORT[d.getMonth()],
+      isToday: i === 0,
+    });
+  }
+  
+  return dates;
+};
 
 const timeSlots = [
   "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", 
@@ -72,10 +81,7 @@ export default function BookService() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   
-  // Get user ID from localStorage
   const userId = getCurrentUserId();
-  
-  // Redirect handled by ProtectedRoute
   
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
@@ -93,6 +99,23 @@ export default function BookService() {
   const [isCheckingWorkers, setIsCheckingWorkers] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   
+  const allowedDates = useMemo(() => generateAllowedDates(), []);
+  
+  // Filter time slots: if booking is today, hide past hours
+  const availableTimeSlots = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    if (bookingDetails.date === todayStr) {
+      const currentHour = now.getHours();
+      return timeSlots.filter(slot => {
+        const slotHour = parseInt(slot.split(':')[0]);
+        return slotHour > currentHour;
+      });
+    }
+    return timeSlots;
+  }, [bookingDetails.date]);
+  
   const { data: services, isLoading: isLoadingServices } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
@@ -107,9 +130,8 @@ export default function BookService() {
     setStep(2);
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setBookingDetails(prev => ({ ...prev, [name]: value }));
+  const handleDateSelect = (dateStr: string) => {
+    setBookingDetails(prev => ({ ...prev, date: dateStr, time: "" })); // Reset time when date changes
   };
   
   const handleTimeSelect = (value: string) => {
@@ -129,18 +151,16 @@ export default function BookService() {
     setAvailableWorkers([]);
     
     try {
-      console.log(`Finding available workers for service ${selectedService} on ${bookingDetails.date} at ${bookingDetails.time}`);
       const response = await getAvailableWorkers({
         serviceId: selectedService,
         date: bookingDetails.date,
         time: bookingDetails.time,
         latitude: bookingDetails.latitude,
         longitude: bookingDetails.longitude,
-        radiusKm: 20 // Default search radius
+        radiusKm: 20
       });
       
       const workers = response.data as Worker[];
-      console.log("Available workers found:", workers);
       setAvailableWorkers(workers);
       
       if (workers.length === 0) {
@@ -159,6 +179,11 @@ export default function BookService() {
     setStep(3);
   };
   
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBookingDetails(prev => ({ ...prev, [name]: value }));
+  };
+  
   const handleBooking = async () => {
     if (!userId) {
       toast.error("User ID not found, please log in again");
@@ -174,20 +199,6 @@ export default function BookService() {
     setIsBooking(true);
     
     try {
-      console.log("Creating booking with details:", {
-        userId,
-        serviceId: selectedService,
-        workerId: selectedWorker.worker_id,
-        bookingDate: bookingDetails.date,
-        bookingTime: bookingDetails.time,
-        durationHours: bookingDetails.duration,
-        address: bookingDetails.location,
-        latitude: bookingDetails.latitude,
-        longitude: bookingDetails.longitude,
-        locationText: bookingDetails.location,
-        notes: bookingDetails.notes || ""
-      });
-      
       const response = await createBooking({
         userId,
         serviceId: selectedService,
@@ -204,7 +215,6 @@ export default function BookService() {
       
       toast.success("Booking request sent successfully!");
       
-      // Navigate to confirmation page with booking details
       navigate('/booking-confirmation', { 
         state: { 
           bookingId: response.data.bookingId,
@@ -299,41 +309,68 @@ export default function BookService() {
                 <CardHeader>
                   <CardTitle>Booking Details</CardTitle>
                   <CardDescription>
-                    Please select a date and time for your service.
-                    You can book up to 2 weeks in advance.
+                    Select a date (up to 7 days ahead), time, and location for your service.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Date</Label>
-                      <Input
-                        id="date"
-                        name="date"
-                        type="date"
-                        min={dateLimits.min}
-                        max={dateLimits.max}
-                        value={bookingDetails.date}
-                        onChange={handleInputChange}
-                        required
-                      />
+                  {/* ─── Date Picker: Clickable tiles only, NO text input ─── */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" /> Select Date
+                    </Label>
+                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {allowedDates.map((d) => (
+                        <button
+                          key={d.dateStr}
+                          type="button"
+                          onClick={() => handleDateSelect(d.dateStr)}
+                          className={`
+                            flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all text-center
+                            ${bookingDetails.date === d.dateStr 
+                              ? 'border-primary bg-primary/10 text-primary font-semibold shadow-sm' 
+                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                            }
+                          `}
+                        >
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {d.isToday ? 'Today' : d.dayName}
+                          </span>
+                          <span className="text-xl font-bold leading-tight mt-0.5">{d.dayNum}</span>
+                          <span className="text-[10px] text-muted-foreground">{d.monthName}</span>
+                        </button>
+                      ))}
                     </div>
-                    
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* ─── Time Picker: Select dropdown, NO text input ─── */}
                     <div className="space-y-2">
-                      <Label htmlFor="time">Time</Label>
+                      <Label htmlFor="time" className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" /> Time Slot
+                      </Label>
                       <Select
                         value={bookingDetails.time}
                         onValueChange={handleTimeSelect}
+                        disabled={!bookingDetails.date}
                       >
                         <SelectTrigger id="time">
-                          <SelectValue placeholder="Select a time" />
+                          <SelectValue placeholder={bookingDetails.date ? "Select a time" : "Select a date first"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {timeSlots.map(time => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
+                          {availableTimeSlots.length === 0 ? (
+                            <SelectItem value="none" disabled>No available slots today</SelectItem>
+                          ) : (
+                            availableTimeSlots.map(time => {
+                              const hour = parseInt(time.split(':')[0]);
+                              const ampm = hour >= 12 ? 'PM' : 'AM';
+                              const displayHour = hour % 12 || 12;
+                              return (
+                                <SelectItem key={time} value={time}>
+                                  {displayHour}:00 {ampm}
+                                </SelectItem>
+                              );
+                            })
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -512,7 +549,7 @@ export default function BookService() {
                   </div>
                   
                   <div className="bg-green-50 p-4 rounded-md flex items-center">
-                    <User className="text-green-500 mr-2 h-5 w-5" />
+                    <CheckCircle2 className="text-green-500 mr-2 h-5 w-5" />
                     <span className="text-green-800">Worker is available for this time slot!</span>
                   </div>
                 </CardContent>

@@ -96,6 +96,18 @@ const typeDefs = `#graphql
     total_price: Float!
     status: String!
     created_at: String
+    travel_started_at: String
+    arrived_at: String
+    service_started_at: String
+    completion_requested_at: String
+    scheduled_start_datetime: String
+    scheduled_end_datetime: String
+    arrival_delay_minutes: Int
+    service_start_delay_minutes: Int
+    travel_duration_minutes: Int
+    service_duration_minutes: Int
+    early_arrival_minutes: Int
+    user_confirmed_arrival: Boolean
     user_name: String
     user_phone: String
     user_email: String
@@ -178,6 +190,8 @@ const typeDefs = `#graphql
     description: String!
     timestamp: String!
     status: String!
+    delay: String
+    notes: String
   }
 
   type ServiceAnalytics {
@@ -367,14 +381,18 @@ const typeDefs = `#graphql
     updateLocation(latitude: Float!, longitude: Float!, locationText: String): MessageResponse!
     updateWorkerRadius(radiusKm: Int!): MessageResponse!
 
-    # Booking
+    # Booking Lifecycle
     createBooking(input: CreateBookingInput!): BookingResult!
     acceptBooking(bookingId: Int!): MessageResponse!
     rejectBooking(bookingId: Int!): MessageResponse!
     cancelBooking(bookingId: Int!): MessageResponse!
     startTravel(bookingId: Int!): MessageResponse!
-    markArrived(bookingId: Int!): MessageResponse!
-    completeBooking(bookingId: Int!): MessageResponse!
+    markArrived(bookingId: Int!, latitude: Float!, longitude: Float!): MessageResponse!
+    confirmArrival(bookingId: Int!): MessageResponse!
+    startService(bookingId: Int!): MessageResponse!
+    requestCompletion(bookingId: Int!): MessageResponse!
+    confirmCompletion(bookingId: Int!): MessageResponse!
+    reportIssue(bookingId: Int!, reason: String!): MessageResponse!
 
     # Review
     createReview(bookingId: Int!, rating: Int!, comment: String): ReviewResult!

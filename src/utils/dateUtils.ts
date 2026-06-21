@@ -6,7 +6,7 @@
  * Safely parse a date value from various formats.
  * Handles: epoch (number or numeric string), ISO strings, date strings.
  */
-function safeParse(value: string | number | Date | null | undefined): Date | null {
+export function safeParse(value: string | number | Date | null | undefined): Date | null {
   if (!value) return null;
 
   // Already a Date
@@ -135,6 +135,7 @@ export function formatRelativeTime(value: string | number | Date | null | undefi
 
 /**
  * Get status color class for booking status badges.
+ * Covers the full booking lifecycle state machine.
  */
 export function getStatusColor(status: string): string {
   switch (status?.toLowerCase()) {
@@ -143,12 +144,25 @@ export function getStatusColor(status: string): string {
     case 'accepted':
     case 'confirmed':
       return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'travelling':
+      return 'bg-indigo-100 text-indigo-800 border-indigo-300';
+    case 'arrived':
+    case 'waiting_for_schedule':
+      return 'bg-cyan-100 text-cyan-800 border-cyan-300';
+    case 'service_started':
+    case 'in_progress':
+      return 'bg-orange-100 text-orange-800 border-orange-300';
+    case 'completion_requested':
+      return 'bg-purple-100 text-purple-800 border-purple-300';
     case 'completed':
       return 'bg-green-100 text-green-800 border-green-300';
     case 'rejected':
       return 'bg-red-100 text-red-800 border-red-300';
+    case 'canceled':
     case 'cancelled':
       return 'bg-gray-100 text-gray-600 border-gray-300';
+    case 'under_review':
+      return 'bg-amber-100 text-amber-800 border-amber-300';
     default:
       return 'bg-gray-100 text-gray-600 border-gray-300';
   }
@@ -156,6 +170,7 @@ export function getStatusColor(status: string): string {
 
 /**
  * Get display label for booking status.
+ * Covers the full booking lifecycle state machine.
  */
 export function getStatusLabel(status: string): string {
   switch (status?.toLowerCase()) {
@@ -164,13 +179,49 @@ export function getStatusLabel(status: string): string {
     case 'accepted':
     case 'confirmed':
       return 'Accepted';
+    case 'travelling':
+      return 'Worker Travelling';
+    case 'arrived':
+      return 'Worker Arrived';
+    case 'waiting_for_schedule':
+      return 'Waiting For Schedule';
+    case 'service_started':
+    case 'in_progress':
+      return 'Service In Progress';
+    case 'completion_requested':
+      return 'Completion Requested';
     case 'completed':
       return 'Completed';
     case 'rejected':
       return 'Rejected';
+    case 'canceled':
     case 'cancelled':
       return 'Cancelled';
+    case 'under_review':
+      return 'Under Review';
     default:
       return status || 'Unknown';
   }
+}
+
+/**
+ * Get the ordered list of lifecycle statuses for the progress stepper.
+ */
+export const LIFECYCLE_STATUSES = [
+  'pending',
+  'accepted',
+  'travelling',
+  'arrived',
+  'waiting_for_schedule',
+  'service_started',
+  'completion_requested',
+  'completed',
+] as const;
+
+/**
+ * Get the index of a status in the lifecycle (for progress tracking).
+ * Returns -1 for terminal/non-lifecycle statuses.
+ */
+export function getLifecycleIndex(status: string): number {
+  return LIFECYCLE_STATUSES.indexOf(status?.toLowerCase() as any);
 }
